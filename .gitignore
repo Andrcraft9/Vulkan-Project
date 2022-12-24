@@ -1,0 +1,86 @@
+# OS-specific metadata
+*.DS_Store
+*.Thumbs.db
+
+# Build files
+build/
+dist/
+*.vcproj
+*.vcproject
+
+# IDE/editor configuration
+.idea/
+.settings/
+.vs/
+.vscode/
+.classpath
+.project
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.userprefs
+
+# Temporary files
+*~
+*.lock
+*.swp
+*.tmp
+\#*
+.\#*
+
+# Python
+venv/
+__pycache__/
+.eggs/
+eggs/
+develop-eggs/
+.Python
+*.pyc
+*.egg-info/
+*.egg
+pip-log.text
+pip-delete-this-directory.txt
+
+# Miscellaneous binary files
+*.a
+*.o
+*.so
+*.class
+*.exe
+*.mp4
+*.db3
+*.db3-shm
+*.db3-wal
+*.gz
+*.xz
+*.bz2
+*.z
+*.zip
+*.7z
+*.rar
+*.deb
+*.pth
+*.pb
+*.iml
+*.iws
+*.ipr
+
+# Git client-side hooks management is done by `pre-commit` utility
+pre-commit-log*.txt
+# since there's (at least in my [@Arech] opinion) no common understanding of
+# what is safe to use and what's is unsafe, and many `apt` packages that are
+# considered to be safe, are not backported to most commonly used Ubuntu
+# focal/20.04 version, I think it's sensible to maintain at least for some time
+# until the dust settles, two configuration versions of pre-commit config with
+# none available by default. So, I add main config file .pre-commit-config.yaml
+# to ignored list. Anyone insterested are free to choose his own config out of
+# two currently maintained. See details in 'how_to_setup_local_devenv.txt'
+.pre-commit-config.yaml
+
+# MSVC cmake integration related files / CMake presets.
+# If we are to employ MSVC as an IDE to build the project, or need to use
+# cmake presets at some moment, then these files should not be ignored.
+.cmake/
+CMakePresets.json
+
