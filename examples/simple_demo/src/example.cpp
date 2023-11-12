@@ -1,9 +1,9 @@
-#include "simple_lib.hpp"
+#include <vulkan_engine/vulkan_engine.hpp>
 
 #include <iostream>
 
 int main() {
-  core::HelloTriangleApplication app;
+  vulkan_engine::VulkanApp app;
 
   try {
     app.run();
