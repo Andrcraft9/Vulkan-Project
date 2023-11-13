@@ -127,16 +127,32 @@ public:
     const auto window = context_.GetWindow();
 
     /// Main engine loop.
+    std::size_t bufferId{0};
     while (!glfwWindowShouldClose(window)) {
       glfwPollEvents();
 
       render::BeginFrameOptions beginFrameOptions{};
       beginFrameOptions.renderPass = renderPass;
       context_.BeginFrame(beginFrameOptions);
+
+      render::RecordCommandBufferOptions recordOptions{};
+      recordOptions.vertexBuffer = vertexBuffer;
+      recordOptions.indexBuffer = indexBuffer;
+      recordOptions.indexCount = indices_.size();
+      recordOptions.descriptorSet = descriptorSets[bufferId];
+      recordOptions.commandBuffer = commandBuffers[bufferId];
+      recordOptions.renderPass = renderPass;
+      recordOptions.pipelineLayout = pipelineLayout;
+      recordOptions.pipeline = pipeline;
+      recordOptions.clearColor = VkClearValue{127, 127, 127, 127};
+      context_.RecordCommandBuffer(recordOptions);
+
       render::EndFrameOptions endFrameOptions{};
       endFrameOptions.renderPass = renderPass;
-      endFrameOptions.commandBuffer = commandBuffers[0];
+      endFrameOptions.commandBuffer = commandBuffers[bufferId];
       context_.EndFrame(endFrameOptions);
+
+      bufferId = (bufferId + 1) % 2;
     }
 
     context_.WaitIdle();

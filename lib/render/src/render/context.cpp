@@ -104,6 +104,9 @@ void Context::InitWindow() {
 }
 
 void Context::Initialize(const ContextOptions &options) {
+  // 0) Init window
+  InitWindow();
+
   // 0) Check validation layers:
   if (options.enableValidationLayers && !CheckValidationLayerSupport()) {
     throw std::runtime_error("validation layers requested, but not available!");
