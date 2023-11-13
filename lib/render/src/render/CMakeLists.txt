@@ -1,7 +1,7 @@
 target_sources(
   "${PROJECT_NAME}"
   PUBLIC
-    vulkan_engine.hpp
+    context.hpp
   PRIVATE
-    vulkan_engine.cpp
+    context.cpp
 )

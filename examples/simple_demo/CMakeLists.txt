@@ -9,7 +9,7 @@ target_include_directories(
 target_link_libraries(
   simple_demo
   PUBLIC
-    vulkan_engine
+    graphics
 )
 
 add_subdirectory(src)

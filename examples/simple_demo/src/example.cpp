@@ -1,9 +1,9 @@
-#include <vulkan_engine/vulkan_engine.hpp>
+#include <graphics/engine.hpp>
 
 #include <iostream>
 
 int main() {
-  vulkan_engine::VulkanApp app;
+  graphics::VulkanApp app;
 
   try {
     app.run();

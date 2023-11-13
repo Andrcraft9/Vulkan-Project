@@ -1,29 +1,8 @@
 #pragma once
 
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
+#include <render/context.hpp>
 
-#define GLM_FORCE_RADIANS
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-
-#include <chrono>
-#include <cstdlib>
-#include <cstring>
-#include <iostream>
-#include <optional>
-#include <set>
-#include <stdexcept>
-#include <string>
-#include <vector>
-
-#include <algorithm> // Necessary for std::clamp
-#include <cstdint>   // Necessary for uint32_t
-#include <filesystem>
-#include <fstream>
-#include <limits> // Necessary for std::numeric_limits
-
-namespace vulkan_engine {
+namespace graphics {
 
 namespace fs = std::filesystem;
 
@@ -640,4 +619,4 @@ private:
   std::vector<void *> uniformBuffersMapped_{};
 };
 
-} // namespace vulkan_engine
+} // namespace graphics

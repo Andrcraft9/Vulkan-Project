@@ -2,17 +2,13 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(
-  vulkan_engine
-  DESCRIPTION "Vulkan Engine"
+  graphics
+  DESCRIPTION "Graphics Engine Interfaces"
   VERSION ${VULKAN_PROJECT_VERSION}
   LANGUAGES CXX)
 
 add_library("${PROJECT_NAME}" STATIC)
 target_compile_features("${PROJECT_NAME}" PUBLIC cxx_std_17)
-
-# Dependencies:
-find_package(glfw3 REQUIRED)
-find_package(Vulkan REQUIRED)
 
 target_include_directories(
   "${PROJECT_NAME}"
@@ -23,8 +19,7 @@ target_include_directories(
 target_link_libraries(
   "${PROJECT_NAME}"
   PUBLIC
-    glfw
-    Vulkan::Vulkan
+    render
 )
 
 add_subdirectory(src)
