@@ -1,12 +1,12 @@
-#include <graphics/engine.hpp>
+#include <graphics/app.hpp>
 
 #include <iostream>
 
 int main() {
-  graphics::Engine engine{};
+  graphics::VulkanApp app;
 
   try {
-    engine.Run();
+    app.run();
   } catch (const std::exception &e) {
     std::cerr << e.what() << std::endl;
     return EXIT_FAILURE;

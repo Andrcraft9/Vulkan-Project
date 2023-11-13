@@ -7,7 +7,6 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-#include <chrono>
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
@@ -17,28 +16,13 @@
 #include <string>
 #include <string_view>
 #include <vector>
-
 #include <algorithm> // Necessary for std::clamp
 #include <cstdint>   // Necessary for uint32_t
-#include <filesystem>
-#include <fstream>
 #include <limits> // Necessary for std::numeric_limits
 
 namespace render {
 
-namespace fs = std::filesystem;
-
-const std::string kVertexShaderPath{"../../../shaders/vert.spv"};
-const std::string kFragmentShaderPath{"../../../shaders/frag.spv"};
-
 constexpr int kMaxFramesInFlight{2};
-
-/// Helper function to load the binary data from the files.
-///
-/// @param path  Path to file.
-///
-/// @return Loaded binary data.
-std::vector<char> ReadFile(fs::path path);
 
 /// Defines vertex data.
 struct Vertex final {
@@ -331,6 +315,22 @@ public:
   EndFrameInfo EndFrame(const EndFrameOptions &options);
 
   /// @}
+
+  VkFormat GetSwapChainImageFormat() {
+    return swapChainImageFormat_;
+  }
+
+  VkExtent2D GetSwapChainExtent() {
+    return swapChainExtent_;
+  }
+
+  GLFWwindow* GetWindow() {
+    return window_;
+  }
+
+  void WaitIdle() {
+    vkDeviceWaitIdle(device_);
+  }
 
 private:
   static void FramebufferResizeCallback(GLFWwindow *window, int width,
