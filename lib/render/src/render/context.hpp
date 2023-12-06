@@ -7,18 +7,18 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+#include <algorithm> // Necessary for std::clamp
+#include <cstdint>   // Necessary for uint32_t
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
+#include <limits> // Necessary for std::numeric_limits
 #include <optional>
 #include <set>
 #include <stdexcept>
 #include <string>
 #include <string_view>
 #include <vector>
-#include <algorithm> // Necessary for std::clamp
-#include <cstdint>   // Necessary for uint32_t
-#include <limits> // Necessary for std::numeric_limits
 
 namespace render {
 
@@ -149,6 +149,11 @@ struct RecordCommandBufferOptions final {
 
 struct BeginFrameOptions final {
   VkRenderPass renderPass{VK_NULL_HANDLE};
+};
+
+struct UpdateUniformBufferOptions final {
+  std::uint32_t uniformBufferIndex{};
+  UniformBufferObject data{};
 };
 
 struct BeginFrameInfo final {
@@ -308,6 +313,8 @@ public:
   /// @param imageIndex  Image (framebuffer) index to use in the render pass.
   void RecordCommandBuffer(const RecordCommandBufferOptions &options);
 
+  void UpdateUniformBuffer(const UpdateUniformBufferOptions &options);
+
   /// Begins a new frame.
   BeginFrameInfo BeginFrame(const BeginFrameOptions &options);
 
@@ -316,21 +323,13 @@ public:
 
   /// @}
 
-  VkFormat GetSwapChainImageFormat() {
-    return swapChainImageFormat_;
-  }
+  VkFormat GetSwapChainImageFormat() { return swapChainImageFormat_; }
 
-  VkExtent2D GetSwapChainExtent() {
-    return swapChainExtent_;
-  }
+  VkExtent2D GetSwapChainExtent() { return swapChainExtent_; }
 
-  GLFWwindow* GetWindow() {
-    return window_;
-  }
+  GLFWwindow *GetWindow() { return window_; }
 
-  void WaitIdle() {
-    vkDeviceWaitIdle(device_);
-  }
+  void WaitIdle() { vkDeviceWaitIdle(device_); }
 
 private:
   static void FramebufferResizeCallback(GLFWwindow *window, int width,

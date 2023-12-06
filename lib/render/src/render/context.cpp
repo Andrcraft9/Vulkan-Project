@@ -1130,6 +1130,11 @@ void Context::RecordCommandBuffer(const RecordCommandBufferOptions &options) {
   }
 }
 
+void Context::UpdateUniformBuffer(const UpdateUniformBufferOptions &options) {
+  memcpy(uniformBufferMappedMemories_[options.uniformBufferIndex],
+         &options.data, sizeof(options.data));
+}
+
 BeginFrameInfo Context::BeginFrame(const BeginFrameOptions &options) {
   // Waiting for the previous frame:
   vkWaitForFences(device_, 1, &inFlightFences_[currentFrame_], VK_TRUE,
