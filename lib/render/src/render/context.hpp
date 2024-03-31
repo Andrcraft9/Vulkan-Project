@@ -22,6 +22,8 @@
 #include <string_view>
 #include <vector>
 
+#include <stb/stb_image.h>
+
 namespace render {
 
 constexpr int kMaxFramesInFlight{2};
@@ -30,6 +32,7 @@ constexpr int kMaxFramesInFlight{2};
 struct Vertex final {
   glm::vec2 pos;
   glm::vec3 color;
+  glm::vec2 texCoord;
 };
 
 /// Returns bindings description: spacing between data and whether the data is
@@ -44,17 +47,25 @@ inline VkVertexInputBindingDescription GetBindingDescription() {
 
 /// Returns Attribute descriptions: type of the attributes passed to the
 /// vertex shader, which binding to load them from and at which offset.
-inline std::array<VkVertexInputAttributeDescription, 2>
+inline std::array<VkVertexInputAttributeDescription, 3>
 GetAttributeDescriptions() {
-  std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions{};
+  std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions{};
+
   attributeDescriptions[0].binding = 0;
   attributeDescriptions[0].location = 0;
   attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
   attributeDescriptions[0].offset = offsetof(Vertex, pos);
+
   attributeDescriptions[1].binding = 0;
   attributeDescriptions[1].location = 1;
   attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
   attributeDescriptions[1].offset = offsetof(Vertex, color);
+
+  attributeDescriptions[2].binding = 0;
+  attributeDescriptions[2].location = 2;
+  attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
+  attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
+
   return attributeDescriptions;
 }
 
@@ -85,10 +96,14 @@ struct FrameBufferOptions final {
   VkExtent2D extent{};
 };
 
-struct DescriptorSetLayoutOptions final {
+struct DescriptorSetLayoutBindingOptions final {
   std::uint32_t binding{};
   VkDescriptorType type{};
   VkShaderStageFlags stageFlags{};
+};
+
+struct DescriptorSetLayoutOptions final {
+  std::vector<DescriptorSetLayoutBindingOptions> bindingOptions{};
 };
 
 struct PipelineLayoutOptions final {
@@ -121,9 +136,14 @@ struct IndexBufferOptions final {
   std::vector<std::uint16_t> indices{};
 };
 
-struct DescriptorPoolOptions final {
+struct DescriptorPoolSizeOptions final {
   VkDescriptorType type{};
   std::uint32_t descriptorCount{};
+};
+
+struct DescriptorPoolOptions final {
+  std::vector<DescriptorPoolSizeOptions> poolSizeOptions{};
+  std::uint32_t maxSets{};
 };
 
 struct DescriptorSetOptions final {
@@ -131,10 +151,21 @@ struct DescriptorSetOptions final {
   VkDescriptorSetLayout descriptorSetLayout{VK_NULL_HANDLE};
 };
 
+struct DescriptorUniformBufferInfo final {
+  VkBuffer buffer{VK_NULL_HANDLE};
+  std::uint32_t binding{};
+};
+
+struct DescriptorImageInfo final {
+  VkImageView imageView{VK_NULL_HANDLE};
+  VkSampler sampler{VK_NULL_HANDLE};
+  std::uint32_t binding{};
+};
+
 struct UpdateDescriptorSetOptions final {
   VkDescriptorSet descriptorSet{VK_NULL_HANDLE};
-  VkDescriptorType descriptorType{};
-  VkBuffer uniformBuffer{VK_NULL_HANDLE};
+  std::vector<DescriptorUniformBufferInfo> descriptorUniformBuffers{};
+  std::vector<DescriptorImageInfo> descriptorImages{};
 };
 
 struct RecordCommandBufferOptions final {
@@ -168,6 +199,19 @@ struct EndFrameOptions final {
 };
 
 struct EndFrameInfo final {};
+
+struct TextureImageOptions final {
+  VkCommandPool commandPool{VK_NULL_HANDLE};
+  std::string pathToImage{};
+};
+
+struct TextureSamplerOptions final {
+  VkFilter magFilter{VK_FILTER_LINEAR};
+  VkFilter minFilter{VK_FILTER_LINEAR};
+  VkSamplerAddressMode addressMode{VK_SAMPLER_ADDRESS_MODE_REPEAT};
+  bool anisotropyEnable{false};
+  VkBorderColor borderColor{VK_BORDER_COLOR_INT_OPAQUE_BLACK};
+};
 
 /// Context provides render interfaces based on Vulkan API.
 class Context final {
@@ -323,6 +367,13 @@ public:
   /// Ends the current frame.
   EndFrameInfo EndFrame(const EndFrameOptions &options);
 
+  /// Creates a texture image.
+  ///
+  /// @param options  Texture image options.
+  VkImage CreateTextureImage(const TextureImageOptions &options);
+
+  VkSampler CreateTextureSampler(const TextureSamplerOptions &options);
+
   /// @}
 
   VkFormat GetSwapChainImageFormat() { return swapChainImageFormat_; }
@@ -460,6 +511,11 @@ private:
   std::uint32_t FindMemoryType(std::uint32_t typeFilter,
                                VkMemoryPropertyFlags properties);
 
+  VkCommandBuffer BeginSingleTimeCommands(VkCommandPool commandPool);
+
+  void EndSingleTimeCommands(VkCommandPool commandPool,
+                             VkCommandBuffer commandBuffer);
+
   /// Creates a Vulkan buffer.
   ///
   /// @param size  Buffer size.
@@ -482,6 +538,17 @@ private:
 
   void RecreateSwapChain(VkRenderPass renderPass);
 
+  void CreateImage(std::uint32_t width, std::uint32_t height, VkFormat format,
+                   VkImageTiling tiling, VkImageUsageFlags usage,
+                   VkMemoryPropertyFlags properties, VkImage &image,
+                   VkDeviceMemory &imageMemory);
+
+  void TransitionImageLayout(VkCommandPool commandPool, VkImage image,
+                             VkFormat format, VkImageLayout oldLayout,
+                             VkImageLayout newLayout);
+
+  void CopyBufferToImage(VkCommandPool commandPool, VkBuffer buffer,
+                         VkImage image, uint32_t width, uint32_t height);
   /// Window resources.
   std::uint32_t width_{1600U};
   std::uint32_t height_{1200U};
@@ -545,6 +612,13 @@ private:
   std::vector<VkBuffer> uniformBuffers_{};
   std::vector<VkDeviceMemory> uniformBufferMemories_{};
   std::vector<void *> uniformBufferMappedMemories_{};
+
+  /// Texture image resources.
+  std::vector<VkImage> textureImages_{};
+  std::vector<VkDeviceMemory> textureImageMemories_{};
+
+  // Texture samplers.
+  std::vector<VkSampler> samplers_{};
 
   /// Descriptor pool resources.
   std::vector<VkDescriptorPool> descriptorPools_{};

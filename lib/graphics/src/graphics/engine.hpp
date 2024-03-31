@@ -23,6 +23,10 @@ struct Mesh {
   std::vector<std::uint16_t> indices{};
 };
 
+struct Texture {
+  std::string pathToImage{};
+};
+
 /// Engine initialization options.
 struct EngineInitializationOptions {
   /// Path to SPIR-V vertex shader code.
@@ -31,6 +35,8 @@ struct EngineInitializationOptions {
   std::string fragmentShaderPath;
   /// Mesh.
   Mesh mesh{};
+  /// Texture
+  Texture texture{};
 };
 
 struct EngineRenderOptions {
@@ -64,6 +70,9 @@ private:
   VkPipeline pipeline_{};
   VkBuffer vertexBuffer_{};
   VkBuffer indexBuffer_{};
+  VkImage textureImage_{};
+  VkImageView textureImageView_{};
+  VkSampler textureSampler_{};
   std::vector<VkDescriptorSet> descriptorSets_{};
   std::vector<VkCommandBuffer> commandBuffers_{};
 

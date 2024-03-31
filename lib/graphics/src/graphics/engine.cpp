@@ -26,10 +26,14 @@ void Engine::Initialize(const EngineInitializationOptions &options) {
   renderPass_ = context_.CreateRenderPass(renderPassOptions);
 
   LOG(INFO) << "Creating a descriptor set layout...";
-  render::DescriptorSetLayoutOptions descriptorSetLayoutOptions{};
-  descriptorSetLayoutOptions.binding = 0;
-  descriptorSetLayoutOptions.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-  descriptorSetLayoutOptions.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+  std::vector<render::DescriptorSetLayoutBindingOptions> bindingOptions{};
+  bindingOptions.emplace_back(render::DescriptorSetLayoutBindingOptions{
+      0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT});
+  bindingOptions.emplace_back(render::DescriptorSetLayoutBindingOptions{
+      1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+      VK_SHADER_STAGE_FRAGMENT_BIT});
+  render::DescriptorSetLayoutOptions descriptorSetLayoutOptions{
+      std::move(bindingOptions)};
   const auto descriptorSetLayout =
       context_.CreateDescriptorSetLayout(descriptorSetLayoutOptions);
 
@@ -76,16 +80,41 @@ void Engine::Initialize(const EngineInitializationOptions &options) {
   indexBufferOptions.indices = options.mesh.indices;
   indexBuffer_ = context_.CreateIndexBuffer(indexBufferOptions);
 
+  LOG(INFO) << "Creating a texture image...";
+  render::TextureImageOptions textureImageOptions{};
+  textureImageOptions.commandPool = commandPool;
+  textureImageOptions.pathToImage = options.texture.pathToImage;
+  textureImage_ = context_.CreateTextureImage(textureImageOptions);
+
+  LOG(INFO) << "Creating a texture image view...";
+  render::ImageViewOptions textureImageViewOptions{};
+  textureImageViewOptions.format = VK_FORMAT_R8G8B8A8_SRGB;
+  textureImageViewOptions.image = textureImage_;
+  textureImageView_ = context_.CreateImageView(textureImageViewOptions);
+
+  LOG(INFO) << "Creating a texture sampler...";
+  render::TextureSamplerOptions textureSamplerOptions{};
+  textureSamplerOptions.magFilter = VK_FILTER_LINEAR;
+  textureSamplerOptions.minFilter = VK_FILTER_LINEAR;
+  textureSamplerOptions.addressMode = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+  textureSamplerOptions.anisotropyEnable = false;
+  textureSamplerOptions.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+  textureSampler_ = context_.CreateTextureSampler(textureSamplerOptions);
+
   LOG(INFO) << "Creating a descriptor pool...";
-  render::DescriptorPoolOptions descriptorPoolOptions{};
-  descriptorPoolOptions.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-  descriptorPoolOptions.descriptorCount = render::kMaxFramesInFlight;
+  std::vector<render::DescriptorPoolSizeOptions> poolSizes{};
+  poolSizes.emplace_back(render::DescriptorPoolSizeOptions{
+      VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, render::kMaxFramesInFlight});
+  poolSizes.emplace_back(render::DescriptorPoolSizeOptions{
+      VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, render::kMaxFramesInFlight});
+  render::DescriptorPoolOptions descriptorPoolOptions{
+      std::move(poolSizes), render::kMaxFramesInFlight};
   const auto descriptorPool =
       context_.CreateDescriptorPool(descriptorPoolOptions);
 
-  LOG(INFO) << "Creating descriptor sets...";
   descriptorSets_.clear();
   for (std::size_t id{0}; id < render::kMaxFramesInFlight; ++id) {
+    LOG(INFO) << "Creating a descriptor set...";
     render::DescriptorSetOptions descriptorSetOptions{};
     descriptorSetOptions.descriptorPool = descriptorPool;
     descriptorSetOptions.descriptorSetLayout = descriptorSetLayout;
@@ -94,16 +123,28 @@ void Engine::Initialize(const EngineInitializationOptions &options) {
     descriptorSets_.push_back(descriptorSet);
   }
 
-  LOG(INFO) << "Creating an uniform buffer...";
   std::vector<VkBuffer> uniformBuffers{};
   for (const auto &descriptorSet : descriptorSets_) {
+    LOG(INFO) << "Creating an uniform buffer...";
     const auto uniformBuffer = context_.CreateUniformBuffer();
     uniformBuffers.push_back(uniformBuffer);
+
+    LOG(INFO) << "Updating a descriptor set...";
+
+    // Uniform Buffer.
+    std::vector<render::DescriptorUniformBufferInfo> uniformBufferInfos{};
+    uniformBufferInfos.emplace_back(
+        render::DescriptorUniformBufferInfo{uniformBuffer, 0});
+    // Texture.
+    std::vector<render::DescriptorImageInfo> imageInfos{};
+    imageInfos.emplace_back(
+        render::DescriptorImageInfo{textureImageView_, textureSampler_, 1});
     render::UpdateDescriptorSetOptions updateDescriptorSetOptions{};
     updateDescriptorSetOptions.descriptorSet = descriptorSet;
-    updateDescriptorSetOptions.descriptorType =
-        VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    updateDescriptorSetOptions.uniformBuffer = uniformBuffer;
+    updateDescriptorSetOptions.descriptorUniformBuffers =
+        std::move(uniformBufferInfos);
+    updateDescriptorSetOptions.descriptorImages = std::move(imageInfos);
+
     context_.UpdateDescriptorSet(updateDescriptorSetOptions);
   }
 
