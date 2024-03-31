@@ -14,6 +14,7 @@ target_include_directories(
   "${PROJECT_NAME}"
   PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/src"
+    "${glog_INCLUDE_DIRS}"
 )
 
 target_link_libraries(

@@ -7,6 +7,8 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+#include <glog/logging.h>
+
 #include <algorithm> // Necessary for std::clamp
 #include <cstdint>   // Necessary for uint32_t
 #include <cstdlib>
