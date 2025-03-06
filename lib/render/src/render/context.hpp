@@ -9,12 +9,12 @@
 
 #include <glog/logging.h>
 
-#include <algorithm> // Necessary for std::clamp
-#include <cstdint>   // Necessary for uint32_t
+#include <algorithm>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
-#include <limits> // Necessary for std::numeric_limits
+#include <limits>
 #include <optional>
 #include <set>
 #include <stdexcept>

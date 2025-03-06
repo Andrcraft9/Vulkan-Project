@@ -10,25 +10,29 @@ project(
 add_library("${PROJECT_NAME}" STATIC)
 target_compile_features("${PROJECT_NAME}" PUBLIC cxx_std_17)
 
-# Dependencies:
-find_package(glfw3 REQUIRED)
+# System dependencies:
 find_package(Vulkan REQUIRED)
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(glog REQUIRED libglog)
+
+# vcpkg dependencies:
+find_package(glm CONFIG REQUIRED)
+find_package(glfw3 CONFIG REQUIRED)
+find_package(glog CONFIG REQUIRED)
+find_package(Stb REQUIRED)
 
 target_include_directories(
   "${PROJECT_NAME}"
   PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/src"
-    "${glog_INCLUDE_DIRS}"
+    "${Stb_INCLUDE_DIRS}"
 )
 
 target_link_libraries(
   "${PROJECT_NAME}"
   PUBLIC
-    glfw
     Vulkan::Vulkan
-    ${glog_LIBRARIES}
+    glm::glm
+    glfw
+    glog::glog
 )
 
 add_subdirectory(src)

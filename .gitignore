@@ -78,9 +78,3 @@ pre-commit-log*.txt
 # two currently maintained. See details in 'how_to_setup_local_devenv.txt'
 .pre-commit-config.yaml
 
-# MSVC cmake integration related files / CMake presets.
-# If we are to employ MSVC as an IDE to build the project, or need to use
-# cmake presets at some moment, then these files should not be ignored.
-.cmake/
-CMakePresets.json
-
