@@ -1,12 +1,11 @@
 #include <graphics/engine.hpp>
+#include <graphics/map.hpp>
 
 #include <chrono>
 
 void update(graphics::Engine &engine, const float time) {
   const auto swapChainExtent = engine.Extent();
   render::UniformBufferObject ubo{};
-  //ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f),
-  //                        glm::vec3(0.0f, 0.0f, 1.0f));
   ubo.model = glm::mat4(1.0f);
   ubo.view =
       glm::lookAt(glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, 0.0f, 0.0f),
@@ -37,8 +36,8 @@ int main(int argc, char *argv[]) {
           {{0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
           {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}},
       std::vector<std::uint16_t>{0, 1, 2, 2, 3, 0}};
-  graphics::Texture texture{
-      render::ImageData{std::string{"../../../data/photo.jpg"}}};
+  graphics::TileParser tp{};
+  graphics::Texture texture{tp.Parse(0, 0, 0)};
 
   const graphics::EngineInitializationOptions options{
       std::move(vertexShaderPath), std::move(fragmentShaderPath),
