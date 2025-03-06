@@ -24,7 +24,7 @@ struct Mesh {
 };
 
 struct Texture {
-  std::string pathToImage{};
+  render::ImageData image{};
 };
 
 /// Engine initialization options.

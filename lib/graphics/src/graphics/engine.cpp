@@ -83,7 +83,7 @@ void Engine::Initialize(const EngineInitializationOptions &options) {
   LOG(INFO) << "Creating a texture image...";
   render::TextureImageOptions textureImageOptions{};
   textureImageOptions.commandPool = commandPool;
-  textureImageOptions.pathToImage = options.texture.pathToImage;
+  textureImageOptions.imageData = &options.texture.image;
   textureImage_ = context_.CreateTextureImage(textureImageOptions);
 
   LOG(INFO) << "Creating a texture image view...";

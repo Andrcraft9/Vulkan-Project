@@ -5,6 +5,32 @@
 
 namespace render {
 
+ImageData::ImageData() = default;
+
+ImageData::ImageData(const std::string path) {
+  data_ = stbi_load(path.c_str(), &width_, &height_, &components_,
+                    STBI_rgb_alpha);
+  components_ = STBI_rgb_alpha;
+}
+
+ImageData::ImageData(const unsigned char* data, const std::size_t size) {
+  data_ = stbi_load_from_memory(data, size, &width_, &height_, &components_,
+                                STBI_rgb_alpha);
+  components_ = STBI_rgb_alpha;
+}
+
+ImageData::ImageData(ImageData &&other)
+    : width_{other.width_}, height_{other.height_},
+      components_{other.components_}, data_{other.data_} {
+  other.data_ = nullptr;
+}
+
+ImageData::~ImageData() {
+  if (data_ != nullptr) {
+    stbi_image_free(data_);
+  }
+}
+
 void Context::Cleanup() {
   CleanupSwapChain();
 
@@ -1263,16 +1289,14 @@ EndFrameInfo Context::EndFrame(const EndFrameOptions &options) {
 }
 
 VkImage Context::CreateTextureImage(const TextureImageOptions &options) {
-  // Load an image.
-  int texWidth, texHeight, texChannels;
-  stbi_uc *pixels = stbi_load(options.pathToImage.c_str(), &texWidth,
-                              &texHeight, &texChannels, STBI_rgb_alpha);
-  if (!pixels) {
-    throw std::runtime_error("failed to load texture image!");
+  if (!options.imageData) {
+    throw std::runtime_error("no image!");
   }
-  VkDeviceSize imageSize = texWidth * texHeight * 4;
-  LOG(INFO) << "Image " << options.pathToImage << " loaded."
-            << " width=" << texWidth << " height=" << texHeight;
+
+  int texWidth{options.imageData->Width()};
+  int texHeight{options.imageData->Height()};
+  int texComponents{options.imageData->Components()};
+  VkDeviceSize imageSize = texWidth * texHeight * texComponents;
 
   // Create staging buffer and copy image data.
   VkBuffer stagingBuffer;
@@ -1283,30 +1307,48 @@ VkImage Context::CreateTextureImage(const TextureImageOptions &options) {
                stagingBuffer, stagingBufferMemory);
   void *data;
   vkMapMemory(device_, stagingBufferMemory, 0, imageSize, 0, &data);
-  memcpy(data, pixels, static_cast<size_t>(imageSize));
+  memcpy(data, options.imageData->Data(), static_cast<size_t>(imageSize));
   vkUnmapMemory(device_, stagingBufferMemory);
 
-  stbi_image_free(pixels);
+  VkFormat format{};
+  switch (texComponents)
+  {
+  case 1: {
+    format = VK_FORMAT_R8_SRGB;
+    break;
+  }
+  case 3: {
+    format = VK_FORMAT_R8G8B8_SRGB;
+    break;
+  }
+  case 4: {
+    format = VK_FORMAT_R8G8B8A8_SRGB;
+    break;
+  }
+  default: {
+    throw std::runtime_error("unsupported image format!");
+    break;
+  }
+  }
 
   // Create an image.
   VkImage textureImage;
   VkDeviceMemory textureImageMemory;
   CreateImage(
-      texWidth, texHeight, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL,
+      texWidth, texHeight, format, VK_IMAGE_TILING_OPTIMAL,
       VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
       VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
 
   // Transition the texture image to VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL.
-  TransitionImageLayout(options.commandPool, textureImage,
-                        VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED,
+  TransitionImageLayout(options.commandPool, textureImage, format,
+                        VK_IMAGE_LAYOUT_UNDEFINED,
                         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
   // Execute the buffer to image copy operation.
   CopyBufferToImage(options.commandPool, stagingBuffer, textureImage,
                     static_cast<uint32_t>(texWidth),
                     static_cast<uint32_t>(texHeight));
   // Transition to prepare the texture image for shader access.
-  TransitionImageLayout(options.commandPool, textureImage,
-                        VK_FORMAT_R8G8B8A8_SRGB,
+  TransitionImageLayout(options.commandPool, textureImage, format,
                         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 

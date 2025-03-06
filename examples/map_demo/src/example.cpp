@@ -37,7 +37,8 @@ int main(int argc, char *argv[]) {
           {{0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
           {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}},
       std::vector<std::uint16_t>{0, 1, 2, 2, 3, 0}};
-  graphics::Texture texture{std::string{"../../../data/photo.jpg"}};
+  graphics::Texture texture{
+      render::ImageData{std::string{"../../../data/photo.jpg"}}};
 
   const graphics::EngineInitializationOptions options{
       std::move(vertexShaderPath), std::move(fragmentShaderPath),
