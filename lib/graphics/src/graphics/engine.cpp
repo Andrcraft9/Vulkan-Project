@@ -22,7 +22,7 @@ void Engine::Initialize(const EngineInitializationOptions &options) {
 
   LOG(INFO) << "Creating a render pass...";
   render::RenderPassOptions renderPassOptions{};
-  renderPassOptions.format = context_.GetSwapChainImageFormat();
+  renderPassOptions.format = context_.GetSwapchainImageFormat();
   renderPass_ = context_.CreateRenderPass(renderPassOptions);
 
   LOG(INFO) << "Creating a descriptor set layout...";
@@ -56,13 +56,13 @@ void Engine::Initialize(const EngineInitializationOptions &options) {
   pipelineOptions.renderPass = renderPass_;
   pipelineOptions.vertexShader = vertexShaderModule;
   pipelineOptions.fragmentShader = fragmentShaderModule;
-  pipelineOptions.viewportExtent = context_.GetSwapChainExtent();
+  pipelineOptions.viewportExtent = context_.GetSwapchainExtent();
   pipelineOptions.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
   pipelineOptions.polygonMode = VK_POLYGON_MODE_FILL;
   pipeline_ = context_.CreateGraphicsPipeline(pipelineOptions);
 
   LOG(INFO) << "Creating framebuffers...";
-  context_.CreateSwapChainFramebuffers(renderPass_);
+  context_.CreateSwapchainFramebuffers(renderPass_);
 
   LOG(INFO) << "Creating a command pool...";
   render::CommandPoolOptions commandPoolOptions{};
@@ -197,6 +197,6 @@ void Engine::Deinitialize() {
 
 GLFWwindow *Engine::Window() { return context_.GetWindow(); }
 
-VkExtent2D Engine::Extent() { return context_.GetSwapChainExtent(); }
+VkExtent2D Engine::Extent() { return context_.GetSwapchainExtent(); }
 
 } // namespace graphics

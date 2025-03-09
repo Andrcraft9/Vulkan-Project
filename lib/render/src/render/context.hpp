@@ -3,6 +3,8 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
+#include <VkBootstrap.h>
+
 #define GLM_FORCE_RADIANS
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -30,31 +32,23 @@ class ImageData final {
 public:
   ImageData();
   ImageData(std::string path);
-  ImageData(const unsigned char* data, std::size_t size);
+  ImageData(const unsigned char *data, std::size_t size);
 
-  ImageData(ImageData&& other);
+  ImageData(ImageData &&other);
 
   ~ImageData();
 
-  int Width() const {
-    return width_;
-  }
+  int Width() const { return width_; }
 
-  int Height() const {
-    return height_;
-  }
+  int Height() const { return height_; }
 
-  int Components() const {
-    return components_;
-  }
+  int Components() const { return components_; }
 
-  stbi_uc* Data() const {
-    return data_;
-  }
+  stbi_uc *Data() const { return data_; }
 
-  ImageData(const ImageData&) = delete;
-  ImageData& operator=(const ImageData&) = delete;
-  ImageData& operator=(ImageData&&) = delete;
+  ImageData(const ImageData &) = delete;
+  ImageData &operator=(const ImageData &) = delete;
+  ImageData &operator=(ImageData &&) = delete;
 
 private:
   int width_{};
@@ -239,7 +233,7 @@ struct EndFrameInfo final {};
 
 struct TextureImageOptions final {
   VkCommandPool commandPool{VK_NULL_HANDLE};
-  const ImageData* imageData{nullptr};
+  const ImageData *imageData{nullptr};
 };
 
 struct TextureSamplerOptions final {
@@ -258,7 +252,7 @@ public:
     std::optional<std::uint32_t> presentFamily;
   };
 
-  struct SwapChainSupportDetails final {
+  struct SwapchainSupportDetails final {
     VkSurfaceCapabilitiesKHR capabilities;
     std::vector<VkSurfaceFormatKHR> formats;
     std::vector<VkPresentModeKHR> presentModes;
@@ -278,7 +272,7 @@ public:
   void Initialize(const ContextOptions &options);
 
   /// Create framebuffers for default swapchain.
-  void CreateSwapChainFramebuffers(VkRenderPass renderPass);
+  void CreateSwapchainFramebuffers(VkRenderPass renderPass);
 
   /// Destroys all Vulkan created resources and terminates GLFW.
   void Cleanup();
@@ -354,9 +348,9 @@ public:
 
   /// @}
 
-  VkFormat GetSwapChainImageFormat() { return swapChainImageFormat_; }
+  VkFormat GetSwapchainImageFormat() { return swapchain_.image_format; }
 
-  VkExtent2D GetSwapChainExtent() { return swapChainExtent_; }
+  VkExtent2D GetSwapchainExtent() { return swapchain_.extent; }
 
   GLFWwindow *GetWindow() { return window_; }
 
@@ -372,37 +366,11 @@ private:
   /// Initializes GLWF and creates a window.
   void InitWindow();
 
-  /// Checks if all of the requested layers are available.
-  bool CheckValidationLayerSupport();
+  /// Creates the synchronization objects.
+  void CreateSyncObjects();
 
-  /// Checks if the physical device is suitable for the operations we want to
-  /// perform, because not all graphics cards are created equal.
-  bool IsDeviceSuitable(VkPhysicalDevice device);
-
-  /// Check if all of the requested extensions are supported by the physical
-  /// device.
-  bool CheckDeviceExtensionSupport(VkPhysicalDevice device);
-
-  /// Function checks which queue families are supported by the device and
-  /// which one of these supports the commands that we want to use.
-  QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device);
-
-  /// Creates a swapchain.
-  void CreateSwapChain();
-
-  /// Queries details of swap chain support.
-  SwapChainSupportDetails QuerySwapChainSupport(VkPhysicalDevice device);
-
-  /// Chooses the surface format for the swap chain.
-  VkSurfaceFormatKHR ChooseSwapSurfaceFormat(
-      const std::vector<VkSurfaceFormatKHR> &availableFormats);
-
-  /// Chooses the present mode for the swap chain.
-  VkPresentModeKHR ChooseSwapPresentMode(
-      const std::vector<VkPresentModeKHR> &availablePresentModes);
-
-  /// Chooses the swap extent for the swap chain.
-  VkExtent2D ChooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities);
+  /// Create default swapchain.
+  void CreateSwapchain();
 
   /// Finds suitable memory type.
   std::uint32_t FindMemoryType(std::uint32_t typeFilter,
@@ -422,12 +390,9 @@ private:
   void CopyBuffer(VkCommandPool commandPool, VkBuffer srcBuffer,
                   VkBuffer dstBuffer, VkDeviceSize size);
 
-  /// Creates the synchronization objects.
-  void CreateSyncObjects();
+  void CleanupSwapchain();
 
-  void CleanupSwapChain();
-
-  void RecreateSwapChain(VkRenderPass renderPass);
+  void RecreateSwapchain(VkRenderPass renderPass);
 
   void CreateImage(std::uint32_t width, std::uint32_t height, VkFormat format,
                    VkImageTiling tiling, VkImageUsageFlags usage,
@@ -447,24 +412,19 @@ private:
   GLFWwindow *window_{nullptr};
 
   /// Vulkan System resources.
-  const std::vector<const char *> validationLayers_{
-      "VK_LAYER_KHRONOS_validation"};
-  const std::vector<const char *> deviceExtensions_{
-      VK_KHR_SWAPCHAIN_EXTENSION_NAME};
-  VkInstance instance_{VK_NULL_HANDLE};
+  vkb::Instance instance_{};
   VkSurfaceKHR surface_{VK_NULL_HANDLE};
-  VkPhysicalDevice physicalDevice_{VK_NULL_HANDLE};
-  VkDevice device_{VK_NULL_HANDLE};
+  vkb::PhysicalDevice physicalDevice_{};
+  vkb::Device device_{};
+  // TODO: Use dispatch table for all Vulkan calls.
+  vkb::DispatchTable dispatch_{};
   VkQueue graphicsQueue_{VK_NULL_HANDLE};
   VkQueue presentQueue_{VK_NULL_HANDLE};
 
   /// Swapchain resources.
-  VkSwapchainKHR swapChain_{VK_NULL_HANDLE};
-  VkFormat swapChainImageFormat_{};
-  VkExtent2D swapChainExtent_{};
-  std::vector<VkImage> swapChainImages_{};
-  std::vector<VkImageView> swapChainImageViews_{};
-  std::vector<VkFramebuffer> swapChainFramebuffers_{};
+  vkb::Swapchain swapchain_{};
+  std::vector<VkImageView> swapchainImageViews_{};
+  std::vector<VkFramebuffer> swapchainFramebuffers_{};
   std::uint32_t currentSwapchainImageIndex_{};
 
   /// Image view resources.
