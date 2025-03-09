@@ -14,6 +14,8 @@ target_compile_features("${PROJECT_NAME}" PUBLIC cxx_std_17)
 find_package(Vulkan REQUIRED)
 
 # vcpkg dependencies:
+find_package(VulkanMemoryAllocator CONFIG REQUIRED)
+find_package(vk-bootstrap CONFIG REQUIRED)
 find_package(glm CONFIG REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
 find_package(glog CONFIG REQUIRED)
@@ -30,6 +32,9 @@ target_link_libraries(
   "${PROJECT_NAME}"
   PUBLIC
     Vulkan::Vulkan
+    GPUOpen::VulkanMemoryAllocator
+    vk-bootstrap::vk-bootstrap
+    #vk-bootstrap::vk-bootstrap-compiler-warnings
     glm::glm
     glfw
     glog::glog

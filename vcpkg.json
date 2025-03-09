@@ -4,6 +4,8 @@
     "stb",
     "glm",
     "glog",
-    "cpr"
+    "cpr",
+    "vk-bootstrap",
+    "vulkan-memory-allocator"
   ]
 }
