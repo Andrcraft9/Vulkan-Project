@@ -268,38 +268,12 @@ public:
   /// @{
 
   /// Initializes the Vulkan library doing the following steps:
-  /// - Checks validation layers:
-  ///   Validation layers are optional components that hook into Vulkan function
-  ///   calls to apply additional operations. VK_LAYER_KHRONOS_validation is
-  ///   used provided by Vulkan SDK.
-  ///
-  /// - Creates an instance:
-  ///   There is no global state in Vulkan and all per-application state is
-  ///   stored in a VkInstance object. Creating a VkInstance object initializes
-  ///   the Vulkan library and allows the application to pass information about
-  ///   itself to the implementation.
-  ///
-  /// - Creates surface:
-  ///   VK_KHR_surface is used to establish the connection between Vulkan and
-  ///   the window system to present results to the screen. A VkSurfaceKHR
-  ///   represents an abstract type of surface to present rendered images to.
-  ///   The surface in our program will be backed by the window that we've
-  ///   already opened with GLFW.
-  ///
-  /// - Selects a physical device:
-  ///   After initializing the Vulkan library through a VkInstance we need to
-  ///   look for and select a graphics card in the system that supports the
-  ///   features we need.
-  ///
-  /// - Queries queue families supported for the selected physical device.
-  ///   Here, queues with graphics capabilities and presentation support are
-  ///   essential for us.
-  ///
-  /// - Creates a logical device:
-  ///   The created logical device is the primary interface to the physical
-  ///   device. Creating a logical device also creates the queues associated
-  ///   with that device.
-  ///
+  /// - Checks validation layers.
+  /// - Creates an instance.
+  /// - Creates surface.
+  /// - Selects a physical device.
+  /// - Queries queue families supported.
+  /// - Creates a logical device.
   /// - Creates default swapchain.
   void Initialize(const ContextOptions &options);
 
@@ -318,32 +292,15 @@ public:
   /// @{
 
   /// Creates a shader module from the shader bytecode (SPIR-V).
-  ///
-  /// @param code  Shader SPIR-V bytecode.
-  ///
-  /// @return VkShaderModule.
   VkShaderModule CreateShaderModule(const std::vector<char> &code);
 
   /// Creates a render pass.
-  ///
-  /// Each render pass instance defines a set of image resources, referred to as
-  /// attachments, used during rendering (framebuffer attachments).
-  ///
-  /// Render passes operate in conjunction with framebuffers.
   VkRenderPass CreateRenderPass(const RenderPassOptions &options);
 
   /// Creates a framebuffer object.
-  ///
-  /// The attachments specified during render pass creation are bound by
-  /// wrapping them into a VkFramebuffer object. Framebuffers represent a
-  /// collection of specific memory attachments that a render pass instance
-  /// uses.
   VkFramebuffer CreateFramebuffer(const FrameBufferOptions &options);
 
   /// Creates a description set layout.
-  ///
-  /// Specifies the types of resources that are going to be accessed by the
-  /// pipeline.
   VkDescriptorSetLayout
   CreateDescriptorSetLayout(const DescriptorSetLayoutOptions &options);
 
@@ -354,14 +311,6 @@ public:
   VkPipeline CreateGraphicsPipeline(const GraphicsPipelineOptions &options);
 
   /// Creates a command pool.
-  ///
-  /// Command pools are opaque objects that command buffer memory is allocated
-  /// from, and which allow the implementation to amortize the cost of resource
-  /// creation across multiple command buffers. Command pools are externally
-  /// synchronized, meaning that a command pool must not be used concurrently in
-  /// multiple threads. That includes use via recording commands on any command
-  /// buffers allocated from the pool, as well as operations that allocate,
-  /// free, and reset command buffers or the pool itself.
   VkCommandPool CreateCommandPool(const CommandPoolOptions &options);
 
   /// Creates command buffers from the command pool.
@@ -383,17 +332,11 @@ public:
   VkDescriptorPool CreateDescriptorPool(const DescriptorPoolOptions &options);
 
   /// Creates descriptor sets from the descriptor pool.
-  ///
-  /// Specifies the actual buffer or image resources that will be bound to the
-  /// descriptors.
   VkDescriptorSet CreateDescriptorSet(const DescriptorSetOptions &options);
 
   void UpdateDescriptorSet(const UpdateDescriptorSetOptions &options);
 
   /// Writes the commands to be executed into the command buffer.
-  ///
-  /// @param commandBuffer  Command buffer.
-  /// @param imageIndex  Image (framebuffer) index to use in the render pass.
   void RecordCommandBuffer(const RecordCommandBufferOptions &options);
 
   void UpdateUniformBuffer(const UpdateUniformBufferOptions &options);
@@ -405,8 +348,6 @@ public:
   EndFrameInfo EndFrame(const EndFrameOptions &options);
 
   /// Creates a texture image.
-  ///
-  /// @param options  Texture image options.
   VkImage CreateTextureImage(const TextureImageOptions &options);
 
   VkSampler CreateTextureSampler(const TextureSamplerOptions &options);
@@ -436,112 +377,31 @@ private:
 
   /// Checks if the physical device is suitable for the operations we want to
   /// perform, because not all graphics cards are created equal.
-  ///
-  /// @param device  Physical device to check.
-  ///
-  /// @return True if the device is suitable, false otherwise.
   bool IsDeviceSuitable(VkPhysicalDevice device);
 
   /// Check if all of the requested extensions are supported by the physical
   /// device.
-  ///
-  /// @param device  Physical device.
-  ///
-  /// @return True if extensions are supported, false otherwise.
   bool CheckDeviceExtensionSupport(VkPhysicalDevice device);
 
-  /// There are different types of queues that originate from different queue
-  /// families and each family of queues allows only a subset of commands.
   /// Function checks which queue families are supported by the device and
-  /// which one of these supports the commands that we want to use. We need to
-  /// find queue families that support VK_QUEUE_GRAPHICS_BIT (queue with
-  /// graphics capabilities) and presentation.
-  ///
-  /// @param device  Physical device.
-  ///
-  /// @return QueueFamilyIndices.
+  /// which one of these supports the commands that we want to use.
   QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device);
 
   /// Creates a swapchain.
-  ///
-  /// A swapchain object provides the ability to present rendering results to a
-  /// surface. A swapchain is an abstraction for an array of presentable images
-  /// that are associated with a surface. The presentable images are represented
-  /// by VkImage objects created by the platform. One image (which can be an
-  /// array image for multiview/stereoscopic-3D surfaces) is displayed at a
-  /// time, but multiple images can be queued for presentation. An application
-  /// renders to the image, and then queues the image for presentation to the
-  /// surface.
-  ///
-  /// The presentable images of a swapchain are owned by the presentation
-  /// engine. An application can acquire use of a presentable image from the
-  /// presentation engine. Use of a presentable image must occur only after the
-  /// image is returned by vkAcquireNextImageKHR, and before it is released by
-  /// vkQueuePresentKHR. This includes transitioning the image layout and
-  /// rendering commands.
   void CreateSwapChain();
 
   /// Queries details of swap chain support.
-  ///
-  /// There are basically three kinds of properties we need to check:
-  /// - Basic surface capabilities (min/max number of images in swap chain,
-  ///   min/max width and height of images).
-  /// - Surface formats (pixel format, color space).
-  /// - Available presentation modes.
-  ///
-  /// @param device  Physical device.
-  ///
-  /// @return SwapChainSupportDetails.
   SwapChainSupportDetails QuerySwapChainSupport(VkPhysicalDevice device);
 
   /// Chooses the surface format for the swap chain.
-  ///
-  /// @param availableFormats  Available surface formats.
-  ///
-  /// @return Choosen surface format.
   VkSurfaceFormatKHR ChooseSwapSurfaceFormat(
       const std::vector<VkSurfaceFormatKHR> &availableFormats);
 
   /// Chooses the present mode for the swap chain.
-  ///
-  /// The presentation mode is arguably the most important setting for the swap
-  /// chain, because it represents the actual conditions for showing images to
-  /// the screen. There are four possible modes available in Vulkan:
-  /// - VK_PRESENT_MODE_IMMEDIATE_KHR: Images submitted by your application are
-  ///   transferred to the screen right away, which may result in tearing.
-  /// - VK_PRESENT_MODE_FIFO_KHR: The swap chain is a queue where the display
-  ///   takes an image from the front of the queue when the display is refreshed
-  ///   and the program inserts rendered images at the back of the queue. If the
-  ///   queue is full then the program has to wait. This is most similar to
-  ///   vertical sync as found in modern games. The moment that the display is
-  ///   refreshed is known as "vertical blank".
-  /// - VK_PRESENT_MODE_FIFO_RELAXED_KHR: This mode only differs from the
-  ///   previous one if the application is late and the queue was empty at the
-  ///   last vertical blank. Instead of waiting for the next vertical blank, the
-  ///   image is transferred right away when it finally arrives. This may result
-  ///   in visible tearing.
-  /// - VK_PRESENT_MODE_MAILBOX_KHR: This is another variation of the second
-  ///   mode. Instead of blocking the application when the queue is full, the
-  ///   images that are already queued are simply replaced with the newer ones.
-  ///   This mode can be used to render frames as fast as possible while still
-  ///   avoiding tearing, resulting in fewer latency issues than standard
-  ///   vertical sync. This is commonly known as "triple buffering", although
-  ///   the existence of three buffers alone does not necessarily mean that the
-  ///   framerate is unlocked.
-  ///
-  /// @param availablePresentModes  Available present modes.
-  ///
-  /// @return Choosen present mode.
   VkPresentModeKHR ChooseSwapPresentMode(
       const std::vector<VkPresentModeKHR> &availablePresentModes);
 
   /// Chooses the swap extent for the swap chain.
-  ///
-  /// The swap extent is the resolution of the swap chain images.
-  ///
-  /// @param capabilities  VkSurfaceCapabilitiesKHR.
-  ///
-  /// @return Choosen swap extent.
   VkExtent2D ChooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities);
 
   /// Finds suitable memory type.
@@ -554,12 +414,6 @@ private:
                              VkCommandBuffer commandBuffer);
 
   /// Creates a Vulkan buffer.
-  ///
-  /// @param size  Buffer size.
-  /// @param usage  Buffer usage.
-  /// @param properties  Memory properties.
-  /// @param buffer  Created buffer.
-  /// @param bufferMemory  Allocated memory.
   void CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
                     VkMemoryPropertyFlags properties, VkBuffer &buffer,
                     VkDeviceMemory &bufferMemory);
@@ -586,6 +440,7 @@ private:
 
   void CopyBufferToImage(VkCommandPool commandPool, VkBuffer buffer,
                          VkImage image, uint32_t width, uint32_t height);
+
   /// Window resources.
   std::uint32_t width_{1600U};
   std::uint32_t height_{1200U};
