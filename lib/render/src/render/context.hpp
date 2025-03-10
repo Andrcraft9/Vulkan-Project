@@ -78,24 +78,30 @@ inline VkVertexInputBindingDescription GetBindingDescription() {
 
 /// Returns Attribute descriptions: type of the attributes passed to the
 /// vertex shader, which binding to load them from and at which offset.
-inline std::array<VkVertexInputAttributeDescription, 3>
+inline std::vector<VkVertexInputAttributeDescription>
 GetAttributeDescriptions() {
-  std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions{};
+  std::vector<VkVertexInputAttributeDescription> attributeDescriptions{};
 
-  attributeDescriptions[0].binding = 0;
-  attributeDescriptions[0].location = 0;
-  attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
-  attributeDescriptions[0].offset = offsetof(Vertex, pos);
+  VkVertexInputAttributeDescription vertexInputAttribute0{};
+  vertexInputAttribute0.binding = 0;
+  vertexInputAttribute0.location = 0;
+  vertexInputAttribute0.format = VK_FORMAT_R32G32_SFLOAT;
+  vertexInputAttribute0.offset = offsetof(Vertex, pos);
+  attributeDescriptions.push_back(vertexInputAttribute0);
 
-  attributeDescriptions[1].binding = 0;
-  attributeDescriptions[1].location = 1;
-  attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-  attributeDescriptions[1].offset = offsetof(Vertex, color);
+  VkVertexInputAttributeDescription vertexInputAttribute1{};
+  vertexInputAttribute1.binding = 0;
+  vertexInputAttribute1.location = 1;
+  vertexInputAttribute1.format = VK_FORMAT_R32G32B32_SFLOAT;
+  vertexInputAttribute1.offset = offsetof(Vertex, color);
+  attributeDescriptions.push_back(vertexInputAttribute1);
 
-  attributeDescriptions[2].binding = 0;
-  attributeDescriptions[2].location = 2;
-  attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
-  attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
+  VkVertexInputAttributeDescription vertexInputAttribute2{};
+  vertexInputAttribute2.binding = 0;
+  vertexInputAttribute2.location = 2;
+  vertexInputAttribute2.format = VK_FORMAT_R32G32_SFLOAT;
+  vertexInputAttribute2.offset = offsetof(Vertex, texCoord);
+  attributeDescriptions.push_back(vertexInputAttribute2);
 
   return attributeDescriptions;
 }
@@ -143,6 +149,8 @@ struct PipelineLayoutOptions final {
 
 struct GraphicsPipelineOptions final {
   VkShaderModule vertexShader{VK_NULL_HANDLE};
+  VkVertexInputBindingDescription vertexInputBinding{};
+  std::vector<VkVertexInputAttributeDescription> vertexInputAttribues{};
   VkShaderModule fragmentShader{VK_NULL_HANDLE};
   VkPipelineLayout pipelineLayout{VK_NULL_HANDLE};
   VkRenderPass renderPass{VK_NULL_HANDLE};

@@ -55,6 +55,8 @@ void Engine::Initialize(const EngineInitializationOptions &options) {
   pipelineOptions.pipelineLayout = pipelineLayout_;
   pipelineOptions.renderPass = renderPass_;
   pipelineOptions.vertexShader = vertexShaderModule;
+  pipelineOptions.vertexInputBinding = render::GetBindingDescription();
+  pipelineOptions.vertexInputAttribues = render::GetAttributeDescriptions();
   pipelineOptions.fragmentShader = fragmentShaderModule;
   pipelineOptions.viewportExtent = context_.GetSwapchainExtent();
   pipelineOptions.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;

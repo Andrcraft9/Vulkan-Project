@@ -467,16 +467,14 @@ Context::CreateGraphicsPipeline(const GraphicsPipelineOptions &options) {
   // Vertex input.
   // Describe the format of the vertex data that will be passed to the vertex
   // shader.
-  auto bindingDescription = GetBindingDescription();
-  auto attributeDescriptions = GetAttributeDescriptions();
   VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
   vertexInputInfo.sType =
       VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
   vertexInputInfo.vertexBindingDescriptionCount = 1;
   vertexInputInfo.vertexAttributeDescriptionCount =
-      static_cast<std::uint32_t>(attributeDescriptions.size());
-  vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
-  vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
+      static_cast<std::uint32_t>(options.vertexInputAttribues.size());
+  vertexInputInfo.pVertexBindingDescriptions = &options.vertexInputBinding;
+  vertexInputInfo.pVertexAttributeDescriptions = options.vertexInputAttribues.data();
 
   // Input assembly.
   // Describe what kind of geometry will be drawn from the vertices and if
