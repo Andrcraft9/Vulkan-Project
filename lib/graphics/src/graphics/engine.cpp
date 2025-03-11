@@ -62,13 +62,17 @@ void Engine::Initialize(const EngineInitializationOptions &options) {
   LOG(INFO) << "Creating a vertex buffer...";
   render::VertexBufferOptions vertexBufferOptions{};
   vertexBufferOptions.commandPool = commandPool;
-  vertexBufferOptions.vertices = options.mesh.vertices;
+  vertexBufferOptions.bufferSize =
+      sizeof(options.mesh.vertices[0]) * options.mesh.vertices.size();
+  vertexBufferOptions.bufferData = options.mesh.vertices.data();
   vertexBuffer_ = context_.CreateVertexBuffer(vertexBufferOptions);
 
   LOG(INFO) << "Creating a index buffer...";
   render::IndexBufferOptions indexBufferOptions{};
   indexBufferOptions.commandPool = commandPool;
-  indexBufferOptions.indices = options.mesh.indices;
+  indexBufferOptions.bufferSize =
+      sizeof(options.mesh.indices[0]) * options.mesh.indices.size();
+  indexBufferOptions.bufferData = options.mesh.indices.data();
   indexBuffer_ = context_.CreateIndexBuffer(indexBufferOptions);
 
   LOG(INFO) << "Creating a texture image...";

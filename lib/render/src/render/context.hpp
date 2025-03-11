@@ -167,12 +167,14 @@ struct CommandBufferOptions final {
 
 struct VertexBufferOptions final {
   VkCommandPool commandPool{VK_NULL_HANDLE};
-  std::vector<Vertex> vertices{};
+  const void *bufferData{};
+  VkDeviceSize bufferSize{};
 };
 
 struct IndexBufferOptions final {
   VkCommandPool commandPool{VK_NULL_HANDLE};
-  std::vector<std::uint16_t> indices{};
+  const std::uint16_t* bufferData{};
+  VkDeviceSize bufferSize{};
 };
 
 struct DescriptorPoolSizeOptions final {

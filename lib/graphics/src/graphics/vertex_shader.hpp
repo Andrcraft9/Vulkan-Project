@@ -40,13 +40,17 @@ public:
     LOG(INFO) << "VS: Creating a vertex buffer...";
     render::VertexBufferOptions vertexBufferOptions{};
     vertexBufferOptions.commandPool = options.commandPool;
-    vertexBufferOptions.vertices = options.vertices;
+    vertexBufferOptions.bufferSize =
+        sizeof(options.vertices[0]) * options.vertices.size();
+    vertexBufferOptions.bufferData = options.vertices.data();
     vertexBuffer_ = context.CreateVertexBuffer(vertexBufferOptions);
 
     LOG(INFO) << "VS: Creating a index buffer...";
     render::IndexBufferOptions indexBufferOptions{};
     indexBufferOptions.commandPool = options.commandPool;
-    indexBufferOptions.indices = options.indices;
+    indexBufferOptions.bufferSize =
+        sizeof(options.indices[0]) * options.indices.size();
+    indexBufferOptions.bufferData = options.indices.data();
     indexBuffer_ = context.CreateIndexBuffer(indexBufferOptions);
   }
 
