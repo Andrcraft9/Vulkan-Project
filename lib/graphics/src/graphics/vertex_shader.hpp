@@ -17,13 +17,19 @@ public:
   virtual VkBuffer IndexBuffer() const = 0;
 };
 
+// TODO: Abstract descriptor set and uniform buffers somehow...?
 class VertexShaderImpl : public VertexShader {
 public:
+  struct Vertex final {
+    glm::vec2 pos;
+    glm::vec3 color;
+    glm::vec2 texCoord;
+  };
+
   struct Options final {
     const std::string vertexShaderPath{};
     VkCommandPool commandPool{};
-    // TODO: Make implementation specific, don't use render::Vertex.
-    std::vector<render::Vertex> vertices{};
+    std::vector<Vertex> vertices{};
     std::vector<std::uint16_t> indices{};
   };
 
@@ -32,10 +38,9 @@ public:
     const auto vertexShaderCode = ReadFile(options.vertexShaderPath);
     shaderModule_ = context.CreateShaderModule(vertexShaderCode);
 
-    // TODO: Make implementation specific, don't use render::Get*().
     LOG(INFO) << "VS: Input binding/attribute descriptions...";
-    vertexInputBinding_ = render::GetBindingDescription();
-    vertexInputAttributes_ = render::GetAttributeDescriptions();
+    vertexInputBinding_ = GetBindingDescription();
+    vertexInputAttributes_ = GetAttributeDescriptions();
 
     LOG(INFO) << "VS: Creating a vertex buffer...";
     render::VertexBufferOptions vertexBufferOptions{};
@@ -75,6 +80,42 @@ private:
   std::vector<VkVertexInputAttributeDescription> vertexInputAttributes_;
   VkBuffer vertexBuffer_;
   VkBuffer indexBuffer_;
+
+  static VkVertexInputBindingDescription GetBindingDescription() {
+    VkVertexInputBindingDescription bindingDescription{};
+    bindingDescription.binding = 0;
+    bindingDescription.stride = sizeof(Vertex);
+    bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+    return bindingDescription;
+  }
+
+  static std::vector<VkVertexInputAttributeDescription>
+  GetAttributeDescriptions() {
+    std::vector<VkVertexInputAttributeDescription> attributeDescriptions{};
+
+    VkVertexInputAttributeDescription vertexInputAttribute0{};
+    vertexInputAttribute0.binding = 0;
+    vertexInputAttribute0.location = 0;
+    vertexInputAttribute0.format = VK_FORMAT_R32G32_SFLOAT;
+    vertexInputAttribute0.offset = offsetof(Vertex, pos);
+    attributeDescriptions.push_back(vertexInputAttribute0);
+
+    VkVertexInputAttributeDescription vertexInputAttribute1{};
+    vertexInputAttribute1.binding = 0;
+    vertexInputAttribute1.location = 1;
+    vertexInputAttribute1.format = VK_FORMAT_R32G32B32_SFLOAT;
+    vertexInputAttribute1.offset = offsetof(Vertex, color);
+    attributeDescriptions.push_back(vertexInputAttribute1);
+
+    VkVertexInputAttributeDescription vertexInputAttribute2{};
+    vertexInputAttribute2.binding = 0;
+    vertexInputAttribute2.location = 2;
+    vertexInputAttribute2.format = VK_FORMAT_R32G32_SFLOAT;
+    vertexInputAttribute2.offset = offsetof(Vertex, texCoord);
+    attributeDescriptions.push_back(vertexInputAttribute2);
+
+    return attributeDescriptions;
+  }
 };
 
 } // namespace graphics

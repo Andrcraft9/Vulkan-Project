@@ -2,6 +2,7 @@
 
 #include <render/context.hpp>
 #include <graphics/utils.hpp>
+#include <graphics/vertex_shader.hpp>
 
 namespace graphics {
 
