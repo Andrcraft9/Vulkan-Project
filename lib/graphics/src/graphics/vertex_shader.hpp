@@ -1,6 +1,8 @@
 #pragma once
 
 #include <graphics/utils.hpp>
+
+// TODO: Abstract out all Vulkan details and don't include render/context.hpp here.
 #include <render/context.hpp>
 
 namespace graphics {
@@ -20,6 +22,11 @@ struct IndexBufferData final {
   VkDeviceSize size{};
 };
 
+struct UniformBufferData final {
+  const void *data{};
+  VkDeviceSize size{};
+};
+
 struct VertexDescriptorSetDescription final {
   std::uint32_t binding{};
   VkDescriptorType type{};
@@ -36,6 +43,8 @@ public:
   VertexInputAttributes() const = 0;
 
   virtual VertexDescriptorSetDescription DescriptorSetLayout() const = 0;
+
+  virtual UniformBufferData UniformBuffer() const = 0;
 };
 
 class VertexShaderImpl : public VertexShader {
@@ -99,6 +108,12 @@ public:
 
   VertexDescriptorSetDescription DescriptorSetLayout() const final {
     return vertexDescriptorSetDescription_;
+  }
+
+  virtual UniformBufferData UniformBuffer() const final {
+    // TODO: Implement, figure how to abstract uniform buffer updates at
+    // runtime.
+    return UniformBufferData{nullptr, 0U};
   }
 
 private:
