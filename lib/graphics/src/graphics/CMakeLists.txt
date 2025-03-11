@@ -3,6 +3,9 @@ target_sources(
   PUBLIC
     engine.hpp
     map.hpp
+    vertex_shader.hpp
+    utils.hpp
   PRIVATE
     engine.cpp
+    utils.cpp
 )
