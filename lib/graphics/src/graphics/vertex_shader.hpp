@@ -5,19 +5,39 @@
 
 namespace graphics {
 
-class Vertex {};
+struct VertexShaderCode final {
+  const void *data{};
+  VkDeviceSize size{};
+};
+
+struct VertexBufferData final {
+  const void *data{};
+  VkDeviceSize size{};
+};
+
+struct IndexBufferData final {
+  const std::uint16_t *data{};
+  VkDeviceSize size{};
+};
+
+struct VertexDescriptorSetDescription final {
+  std::uint32_t binding{};
+  VkDescriptorType type{};
+};
 
 class VertexShader {
 public:
-  virtual VkShaderModule ShaderModule() const = 0;
+  virtual VertexShaderCode ShaderModule() const = 0;
+  virtual VertexBufferData VertexBuffer() const = 0;
+  virtual IndexBufferData IndexBuffer() const = 0;
+
   virtual VkVertexInputBindingDescription VertexInputBinding() const = 0;
   virtual std::vector<VkVertexInputAttributeDescription>
   VertexInputAttributes() const = 0;
-  virtual VkBuffer VertexBuffer() const = 0;
-  virtual VkBuffer IndexBuffer() const = 0;
+
+  virtual VertexDescriptorSetDescription DescriptorSetLayout() const = 0;
 };
 
-// TODO: Abstract descriptor set and uniform buffers somehow...?
 class VertexShaderImpl : public VertexShader {
 public:
   struct Vertex final {
@@ -26,40 +46,47 @@ public:
     glm::vec2 texCoord;
   };
 
+  // TODO: Abstract descriptor set and uniform buffers somehow...?
+  struct UniformBuffer final {
+    alignas(16) glm::mat4 model;
+    alignas(16) glm::mat4 view;
+    alignas(16) glm::mat4 proj;
+  };
+
   struct Options final {
     const std::string vertexShaderPath{};
-    VkCommandPool commandPool{};
     std::vector<Vertex> vertices{};
     std::vector<std::uint16_t> indices{};
   };
 
-  VertexShaderImpl(render::Context &context, const Options &options) {
+  VertexShaderImpl(const Options &options) {
     LOG(INFO) << "VS: Loading a shader:" << options.vertexShaderPath;
-    const auto vertexShaderCode = ReadFile(options.vertexShaderPath);
-    shaderModule_ = context.CreateShaderModule(vertexShaderCode);
+    shaderCode_ = ReadFile(options.vertexShaderPath);
 
-    LOG(INFO) << "VS: Input binding/attribute descriptions...";
+    LOG(INFO) << "VS: Copying vertices and indices...";
+    vertices_ = options.vertices;
+    indices_ = options.indices;
+
+    LOG(INFO) << "VS: Caching input binding/attribute and descriptor set "
+                 "descriptions...";
     vertexInputBinding_ = GetBindingDescription();
     vertexInputAttributes_ = GetAttributeDescriptions();
-
-    LOG(INFO) << "VS: Creating a vertex buffer...";
-    render::VertexBufferOptions vertexBufferOptions{};
-    vertexBufferOptions.commandPool = options.commandPool;
-    vertexBufferOptions.bufferSize =
-        sizeof(options.vertices[0]) * options.vertices.size();
-    vertexBufferOptions.bufferData = options.vertices.data();
-    vertexBuffer_ = context.CreateVertexBuffer(vertexBufferOptions);
-
-    LOG(INFO) << "VS: Creating a index buffer...";
-    render::IndexBufferOptions indexBufferOptions{};
-    indexBufferOptions.commandPool = options.commandPool;
-    indexBufferOptions.bufferSize =
-        sizeof(options.indices[0]) * options.indices.size();
-    indexBufferOptions.bufferData = options.indices.data();
-    indexBuffer_ = context.CreateIndexBuffer(indexBufferOptions);
+    vertexDescriptorSetDescription_ = GetVertexDescriptorSetDescription();
   }
 
-  VkShaderModule ShaderModule() const final { return shaderModule_; }
+  VertexShaderCode ShaderModule() const final {
+    return VertexShaderCode{shaderCode_.data(), shaderCode_.size()};
+  }
+
+  VertexBufferData VertexBuffer() const final {
+    return VertexBufferData{vertices_.data(),
+                            sizeof(Vertex) * vertices_.size()};
+  }
+
+  IndexBufferData IndexBuffer() const final {
+    return IndexBufferData{indices_.data(),
+                           sizeof(std::uint16_t) * indices_.size()};
+  }
 
   VkVertexInputBindingDescription VertexInputBinding() const final {
     return vertexInputBinding_;
@@ -70,16 +97,17 @@ public:
     return vertexInputAttributes_;
   }
 
-  VkBuffer VertexBuffer() const final { return vertexBuffer_; }
-
-  VkBuffer IndexBuffer() const final { return indexBuffer_; }
+  VertexDescriptorSetDescription DescriptorSetLayout() const final {
+    return vertexDescriptorSetDescription_;
+  }
 
 private:
-  VkShaderModule shaderModule_;
+  std::vector<char> shaderCode_;
+  std::vector<Vertex> vertices_{};
+  std::vector<std::uint16_t> indices_{};
   VkVertexInputBindingDescription vertexInputBinding_;
   std::vector<VkVertexInputAttributeDescription> vertexInputAttributes_;
-  VkBuffer vertexBuffer_;
-  VkBuffer indexBuffer_;
+  VertexDescriptorSetDescription vertexDescriptorSetDescription_;
 
   static VkVertexInputBindingDescription GetBindingDescription() {
     VkVertexInputBindingDescription bindingDescription{};
@@ -115,6 +143,13 @@ private:
     attributeDescriptions.push_back(vertexInputAttribute2);
 
     return attributeDescriptions;
+  }
+
+  static VertexDescriptorSetDescription GetVertexDescriptorSetDescription() {
+    VertexDescriptorSetDescription descriptorSetDescription{};
+    descriptorSetDescription.binding = 0;
+    descriptorSetDescription.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    return descriptorSetDescription;
   }
 };
 
