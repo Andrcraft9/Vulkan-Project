@@ -59,10 +59,10 @@ private:
 
 constexpr int kMaxFramesInFlight{2};
 
+// TODO: Remove, use graphics::Vertex.
 /// Defines vertex data.
 struct Vertex final {
-  glm::vec2 pos;
-  glm::vec3 color;
+  glm::vec3 pos;
   glm::vec2 texCoord;
 };
 
@@ -85,23 +85,16 @@ GetAttributeDescriptions() {
   VkVertexInputAttributeDescription vertexInputAttribute0{};
   vertexInputAttribute0.binding = 0;
   vertexInputAttribute0.location = 0;
-  vertexInputAttribute0.format = VK_FORMAT_R32G32_SFLOAT;
+  vertexInputAttribute0.format = VK_FORMAT_R32G32B32_SFLOAT;
   vertexInputAttribute0.offset = offsetof(Vertex, pos);
   attributeDescriptions.push_back(vertexInputAttribute0);
 
   VkVertexInputAttributeDescription vertexInputAttribute1{};
   vertexInputAttribute1.binding = 0;
   vertexInputAttribute1.location = 1;
-  vertexInputAttribute1.format = VK_FORMAT_R32G32B32_SFLOAT;
-  vertexInputAttribute1.offset = offsetof(Vertex, color);
+  vertexInputAttribute1.format = VK_FORMAT_R32G32_SFLOAT;
+  vertexInputAttribute1.offset = offsetof(Vertex, texCoord);
   attributeDescriptions.push_back(vertexInputAttribute1);
-
-  VkVertexInputAttributeDescription vertexInputAttribute2{};
-  vertexInputAttribute2.binding = 0;
-  vertexInputAttribute2.location = 2;
-  vertexInputAttribute2.format = VK_FORMAT_R32G32_SFLOAT;
-  vertexInputAttribute2.offset = offsetof(Vertex, texCoord);
-  attributeDescriptions.push_back(vertexInputAttribute2);
 
   return attributeDescriptions;
 }
@@ -111,6 +104,11 @@ struct UniformBufferObject final {
   alignas(16) glm::mat4 model;
   alignas(16) glm::mat4 view;
   alignas(16) glm::mat4 proj;
+};
+
+struct ShaderModuleOptions final {
+  const void *data{};
+  std::size_t size{};
 };
 
 struct ContextOptions final {
@@ -296,7 +294,7 @@ public:
   /// @{
 
   /// Creates a shader module from the shader bytecode (SPIR-V).
-  VkShaderModule CreateShaderModule(const std::vector<char> &code);
+  VkShaderModule CreateShaderModule(const ShaderModuleOptions &options);
 
   /// Creates a render pass.
   VkRenderPass CreateRenderPass(const RenderPassOptions &options);

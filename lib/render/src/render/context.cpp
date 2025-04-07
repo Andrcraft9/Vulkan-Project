@@ -289,11 +289,11 @@ VkImageView Context::CreateImageView(const ImageViewOptions &options) {
   return imageView;
 }
 
-VkShaderModule Context::CreateShaderModule(const std::vector<char> &code) {
+VkShaderModule Context::CreateShaderModule(const ShaderModuleOptions &options) {
   VkShaderModuleCreateInfo createInfo{};
   createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-  createInfo.codeSize = code.size();
-  createInfo.pCode = reinterpret_cast<const std::uint32_t *>(code.data());
+  createInfo.pCode = static_cast<const std::uint32_t *>(options.data);
+  createInfo.codeSize = options.size;
   VkShaderModule shaderModule;
   if (vkCreateShaderModule(device_, &createInfo, nullptr, &shaderModule) !=
       VK_SUCCESS) {
@@ -915,8 +915,9 @@ void Context::RecordCommandBuffer(const RecordCommandBufferOptions &options) {
                        VK_SUBPASS_CONTENTS_INLINE);
 
   // Basic drawing commands:
-  vkCmdBindPipeline(options.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                    options.pipeline);
+  // TODO: Remove?
+  //vkCmdBindPipeline(options.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+  //                  options.pipeline);
   VkViewport viewport{};
   viewport.x = 0.0f;
   viewport.y = 0.0f;

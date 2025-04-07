@@ -1,5 +1,9 @@
 #pragma once
 
+// TODO: Useless abstraction. Better to start with component system and map
+// components to render context API. Some struct from this header can be useful
+// in render. Except for that, the header can be removed.
+
 #include <graphics/utils.hpp>
 
 // TODO: Abstract out all Vulkan details and don't include render/context.hpp here.
@@ -34,7 +38,7 @@ struct VertexDescriptorSetDescription final {
 
 class VertexShader {
 public:
-  virtual VertexShaderCode ShaderModule() const = 0;
+  virtual VertexShaderCode ShaderCode() const = 0;
   virtual VertexBufferData VertexBuffer() const = 0;
   virtual IndexBufferData IndexBuffer() const = 0;
 
@@ -83,7 +87,7 @@ public:
     vertexDescriptorSetDescription_ = GetVertexDescriptorSetDescription();
   }
 
-  VertexShaderCode ShaderModule() const final {
+  VertexShaderCode ShaderCode() const final {
     return VertexShaderCode{shaderCode_.data(), shaderCode_.size()};
   }
 

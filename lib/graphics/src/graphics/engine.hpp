@@ -1,51 +1,160 @@
 #pragma once
 
-#include <render/context.hpp>
 #include <graphics/utils.hpp>
-#include <graphics/vertex_shader.hpp>
+#include <render/context.hpp>
+
+#include <map>
 
 namespace graphics {
 
-struct Mesh {
-  VkPrimitiveTopology topology{};
-  VkPolygonMode polygonMode{};
-  std::vector<render::Vertex> vertices{};
+/// Component System
+
+struct Vertex final {
+  glm::vec3 position{};
+  glm::vec2 uv{};
+};
+
+using VertexShaderId = std::uint32_t;
+struct VertexShader final {
+  std::string shaderPath{};
+};
+
+// TODO: Template can be reused.
+// using MeshTemplateId = std::uint32_t;
+// struct MeshTemplate final {
+//  VertexShaderId shader{};
+//  VkPrimitiveTopology topology{};
+//  VkPolygonMode polygonMode{};
+//};
+
+using MeshId = std::uint32_t;
+struct Mesh final {
+  VertexShaderId shader{};
+  std::vector<Vertex> vertices{};
   std::vector<std::uint16_t> indices{};
 };
 
-struct Texture {
-  render::ImageData image{};
+using TextureId = std::uint32_t;
+struct Texture final {
+  // TODO: Move from render:: namespace.
+  const render::ImageData *image{};
 };
 
-/// Engine initialization options.
-struct EngineInitializationOptions {
-  /// Path to SPIR-V vertex shader code.
-  std::string vertexShaderPath;
-  /// Path to SPIR-V fragment shader code.
-  std::string fragmentShaderPath;
-  /// Mesh.
-  Mesh mesh{};
-  /// Texture
-  Texture texture{};
+using FragmentShaderId = std::uint32_t;
+struct FragmentShader final {
+  std::string shaderPath{};
 };
 
-struct EngineRenderOptions {
-  render::UniformBufferObject ubo{};
+using MaterialId = std::uint32_t;
+struct Material final {
+  FragmentShaderId shader{};
+  TextureId texture{};
+};
+
+using SurfaceId = std::uint32_t;
+struct Surface final {
+  MeshId mesh{};
+  MaterialId material{};
+};
+
+using NodeId = std::uint32_t;
+struct Node final {
+  glm::mat4 transform{};
+  SurfaceId surface{};
+};
+
+using CameraId = std::uint32_t;
+struct Camera final {
+  glm::mat4 transform{};
+  glm::mat4 projection{};
+};
+
+using SceneId = std::uint32_t;
+struct Scene final {
+  std::vector<NodeId> nodes{};
+  CameraId camera{};
   VkClearValue clearColor{};
 };
 
-/// Vulkan Engine.
+struct Components final {
+  std::map<VertexShaderId, VertexShader> vertexShaders{};
+  std::map<MeshId, Mesh> meshes{};
+  std::map<FragmentShaderId, FragmentShader> fragmentShaders{};
+  std::map<TextureId, Texture> textures{};
+  std::map<MaterialId, Material> materials{};
+  std::map<SurfaceId, Surface> surfaces{};
+  std::map<NodeId, Node> nodes{};
+  std::map<CameraId, Camera> cameras{};
+  std::map<SceneId, Scene> scenes{};
+};
+
+struct MeshRes final {
+  VkBuffer vertexBuffer{};
+  VkBuffer indexBuffer{};
+  std::array<VkBuffer, render::kMaxFramesInFlight> uniformBuffers{};
+};
+
+struct TextureRes final {
+  VkImage image{};
+  VkImageView imageView{};
+  VkSampler sampler{};
+};
+
+struct SurfaceRes final {
+  VkDescriptorSetLayout descriptorSetLayout{};
+  VkPipelineLayout pipelineLayout{};
+  VkPipeline pipeline{};
+  VkDescriptorPool descriptorPool{};
+  std::array<VkDescriptorSet, render::kMaxFramesInFlight> descriptorSets{};
+};
+
+struct Resources final {
+  std::map<VertexShaderId, VkShaderModule> vertexShaders{};
+  std::map<MeshId, MeshRes> meshes{};
+  std::map<FragmentShaderId, VkShaderModule> fragmentShaders{};
+  std::map<TextureId, TextureRes> textures{};
+  std::map<SurfaceId, SurfaceRes> surfaces{};
+};
+
+/// Engine.
 class Engine final {
 public:
-  /// Initialize the engine.
-  ///
-  /// @param option  Initialization params.
-  void Initialize(const EngineInitializationOptions &options);
+  /// Initializing
 
-  void Render(const EngineRenderOptions &options);
+  void Initialize();
 
-  /// Deinitialize the engine and destroy resources.
-  void Deinitialize();
+  /// Building
+
+  VertexShaderId AddVertexShader(VertexShader vertexShader);
+
+  MeshId AddMesh(Mesh mesh);
+
+  FragmentShaderId AddFragmentShader(FragmentShader fragmentShader);
+
+  TextureId AddTexture(Texture texture);
+
+  MaterialId AddMaterial(Material material);
+
+  SurfaceId AddSurface(Surface surface);
+
+  NodeId AddNode(Node node);
+
+  CameraId AddCamera(Camera camera);
+
+  SceneId AddScene(Scene scene);
+
+  /// Updating
+
+  void UpdateNodeTransform(NodeId nodeId, glm::mat4 transform);
+
+  void UpdateCameraTransform(CameraId cameraId, glm::mat4 transform);
+
+  void UpdateCameraProjection(CameraId cameraId, glm::mat4 projection);
+
+  /// Rendering
+
+  /// Render the frame.
+  void Render();
 
   /// Returns pointer to the created GLFW window.
   GLFWwindow *Window();
@@ -53,20 +162,20 @@ public:
   /// Returns the current swapchain extent.
   VkExtent2D Extent();
 
+  /// Deinitializing
+
+  /// Deinitialize the engine and destroy resources.
+  void Deinitialize();
+
 private:
+  Components components_{};
+  Resources resources_{};
+
   render::Context context_{};
   VkRenderPass renderPass_{};
-  VkPipelineLayout pipelineLayout_{};
-  VkPipeline pipeline_{};
-  VkBuffer vertexBuffer_{};
-  VkBuffer indexBuffer_{};
-  VkImage textureImage_{};
-  VkImageView textureImageView_{};
-  VkSampler textureSampler_{};
-  std::vector<VkDescriptorSet> descriptorSets_{};
-  std::vector<VkCommandBuffer> commandBuffers_{};
+  VkCommandPool commandPool_{};
+  std::array<VkCommandBuffer, render::kMaxFramesInFlight> commandBuffers_{};
 
-  std::uint32_t indexCount_{};
   std::uint32_t bufferId_{};
 };
 
