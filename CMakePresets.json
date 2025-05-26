@@ -9,5 +9,12 @@
         "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
       }
     }
+  ],
+  "buildPresets": [
+    {
+      "name": "examples",
+      "configurePreset": "vcpkg",
+      "targets": ["simple_demo", "map_demo"]
+    }
   ]
 }
