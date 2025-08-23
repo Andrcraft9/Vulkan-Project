@@ -1,11 +1,12 @@
-## Overview
-Vulkan Project. In progress.
+# <img src="logo.png" alt="Vulkan Project" width="256" height="256" />
+
+A lightweight graphics engine built on top of Vulkan. The project is primarily intended for graphics engine prototyping and for designing a higher-level abstraction layer over the Vulkan API.
 
 ## Build Requirements
-Define `VCPKG_ROOT` env variable.
+Before building, ensure the `VCPKG_ROOT` environment variable is defined.
 
 ### Ubuntu 20.04
-Required dependencies:
+Install the following dependencies:
 - cmake
 - pkg-config
 - vcpkg
@@ -13,3 +14,16 @@ Required dependencies:
 - vulkan-tools
 - libvulkan-dev
 - glslc
+
+## Build
+Follow the instructions:
+- Build shaders by running `shaders/compile.sh` script.
+- Build the engine:
+```
+cmake --preset=vcpkg
+cmake --build build
+```
+
+## Examples
+- `simple_demo`: Textured plane in 3D space.
+- `map_demo`: OpenStreetMap map tile rendering.
