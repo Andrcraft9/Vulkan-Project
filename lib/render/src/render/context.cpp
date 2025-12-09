@@ -886,9 +886,6 @@ void Context::RecordCommandBuffer(const RecordCommandBufferOptions &options) {
                        VK_SUBPASS_CONTENTS_INLINE);
 
   // Basic drawing commands:
-  // TODO: Remove?
-  //vkCmdBindPipeline(options.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-  //                  options.pipeline);
   VkViewport viewport{};
   viewport.x = 0.0f;
   viewport.y = 0.0f;
@@ -901,7 +898,6 @@ void Context::RecordCommandBuffer(const RecordCommandBufferOptions &options) {
   scissor.offset = {0, 0};
   scissor.extent = swapchain_.extent;
   vkCmdSetScissor(options.commandBuffer, 0, 1, &scissor);
-
   // Binding the vertex buffer:
   vkCmdBindPipeline(options.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                     options.pipeline);
