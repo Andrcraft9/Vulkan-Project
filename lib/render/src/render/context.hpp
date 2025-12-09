@@ -1,5 +1,7 @@
 #pragma once
 
+#include <render/utils.hpp>
+
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
@@ -13,61 +15,22 @@
 
 #include <algorithm>
 #include <cstdint>
-#include <cstdlib>
-#include <cstring>
-#include <iostream>
 #include <limits>
 #include <optional>
-#include <set>
 #include <stdexcept>
 #include <string>
 #include <string_view>
 #include <vector>
 
-#include <stb/stb_image.h>
-
 namespace render {
-
-class ImageData final {
-public:
-  ImageData();
-  ImageData(std::string path);
-  ImageData(const unsigned char *data, std::size_t size);
-
-  ImageData(ImageData &&other);
-
-  ~ImageData();
-
-  int Width() const { return width_; }
-
-  int Height() const { return height_; }
-
-  int Components() const { return components_; }
-
-  stbi_uc *Data() const { return data_; }
-
-  ImageData(const ImageData &) = delete;
-  ImageData &operator=(const ImageData &) = delete;
-  ImageData &operator=(ImageData &&) = delete;
-
-private:
-  int width_{};
-  int height_{};
-  int components_{};
-  stbi_uc *data_{};
-};
 
 constexpr int kMaxFramesInFlight{2};
 
-// TODO: Remove, use graphics::Vertex.
-/// Defines vertex data.
 struct Vertex final {
-  glm::vec3 pos;
-  glm::vec2 texCoord;
+  glm::vec3 position{};
+  glm::vec2 uv{};
 };
 
-/// Returns bindings description: spacing between data and whether the data is
-/// per-vertex or per-instance.
 inline VkVertexInputBindingDescription GetBindingDescription() {
   VkVertexInputBindingDescription bindingDescription{};
   bindingDescription.binding = 0;
@@ -76,8 +39,6 @@ inline VkVertexInputBindingDescription GetBindingDescription() {
   return bindingDescription;
 }
 
-/// Returns Attribute descriptions: type of the attributes passed to the
-/// vertex shader, which binding to load them from and at which offset.
 inline std::vector<VkVertexInputAttributeDescription>
 GetAttributeDescriptions() {
   std::vector<VkVertexInputAttributeDescription> attributeDescriptions{};
@@ -86,24 +47,23 @@ GetAttributeDescriptions() {
   vertexInputAttribute0.binding = 0;
   vertexInputAttribute0.location = 0;
   vertexInputAttribute0.format = VK_FORMAT_R32G32B32_SFLOAT;
-  vertexInputAttribute0.offset = offsetof(Vertex, pos);
+  vertexInputAttribute0.offset = offsetof(Vertex, position);
   attributeDescriptions.push_back(vertexInputAttribute0);
 
   VkVertexInputAttributeDescription vertexInputAttribute1{};
   vertexInputAttribute1.binding = 0;
   vertexInputAttribute1.location = 1;
   vertexInputAttribute1.format = VK_FORMAT_R32G32_SFLOAT;
-  vertexInputAttribute1.offset = offsetof(Vertex, texCoord);
+  vertexInputAttribute1.offset = offsetof(Vertex, uv);
   attributeDescriptions.push_back(vertexInputAttribute1);
 
   return attributeDescriptions;
 }
 
-/// Defines uniform buffer.
 struct UniformBufferObject final {
-  alignas(16) glm::mat4 model;
-  alignas(16) glm::mat4 view;
-  alignas(16) glm::mat4 proj;
+  glm::mat4 model{};
+  glm::mat4 view{};
+  glm::mat4 proj{};
 };
 
 struct ShaderModuleOptions final {
@@ -279,43 +239,33 @@ public:
   /// - Creates default swapchain.
   void Initialize(const ContextOptions &options);
 
-  /// Create framebuffers for default swapchain.
-  void CreateSwapchainFramebuffers(VkRenderPass renderPass);
-
   /// Destroys all Vulkan created resources and terminates GLFW.
   void Cleanup();
 
-  /// Creates an image view.
-  VkImageView CreateImageView(const ImageViewOptions &options);
-
   /// @}
 
-  /// @name Graphics Pipeline Creation
+  /// @name Resource Creation
   /// @{
 
-  /// Creates a shader module from the shader bytecode (SPIR-V).
+  void CreateSwapchainFramebuffers(VkRenderPass renderPass);
+
+  VkImageView CreateImageView(const ImageViewOptions &options);
+
   VkShaderModule CreateShaderModule(const ShaderModuleOptions &options);
 
-  /// Creates a render pass.
   VkRenderPass CreateRenderPass(const RenderPassOptions &options);
 
-  /// Creates a framebuffer object.
   VkFramebuffer CreateFramebuffer(const FrameBufferOptions &options);
 
-  /// Creates a description set layout.
   VkDescriptorSetLayout
   CreateDescriptorSetLayout(const DescriptorSetLayoutOptions &options);
 
-  /// Creates a pipeline layout.
   VkPipelineLayout CreatePipelineLayout(const PipelineLayoutOptions &options);
 
-  /// Creates a graphics pipeline.
   VkPipeline CreateGraphicsPipeline(const GraphicsPipelineOptions &options);
 
-  /// Creates a command pool.
   VkCommandPool CreateCommandPool(const CommandPoolOptions &options);
 
-  /// Creates command buffers from the command pool.
   VkCommandBuffer CreateCommandBuffer(const CommandBufferOptions &options);
 
   /// Creates a vertex buffer.
@@ -333,8 +283,16 @@ public:
 
   VkDescriptorPool CreateDescriptorPool(const DescriptorPoolOptions &options);
 
-  /// Creates descriptor sets from the descriptor pool.
   VkDescriptorSet CreateDescriptorSet(const DescriptorSetOptions &options);
+
+  VkImage CreateTextureImage(const TextureImageOptions &options);
+
+  VkSampler CreateTextureSampler(const TextureSamplerOptions &options);
+
+  /// @}
+
+  /// @name Management
+  /// @{
 
   void UpdateDescriptorSet(const UpdateDescriptorSetOptions &options);
 
@@ -343,18 +301,9 @@ public:
 
   void UpdateUniformBuffer(const UpdateUniformBufferOptions &options);
 
-  /// Begins a new frame.
   BeginFrameInfo BeginFrame(const BeginFrameOptions &options);
 
-  /// Ends the current frame.
   EndFrameInfo EndFrame(const EndFrameOptions &options);
-
-  /// Creates a texture image.
-  VkImage CreateTextureImage(const TextureImageOptions &options);
-
-  VkSampler CreateTextureSampler(const TextureSamplerOptions &options);
-
-  /// @}
 
   VkFormat GetSwapchainImageFormat() { return swapchain_.image_format; }
 
@@ -364,20 +313,25 @@ public:
 
   void WaitIdle() { vkDeviceWaitIdle(device_); }
 
+  /// @}
+
 private:
+  /// @name Internal
+  /// @{
+
   static void FramebufferResizeCallback(GLFWwindow *window, int width,
                                         int height) {
     auto app = reinterpret_cast<Context *>(glfwGetWindowUserPointer(window));
     app->framebufferResized_ = true;
   }
 
-  /// Initializes GLWF and creates a window.
+  /// Initializes GLFW and creates a window.
   void InitWindow();
 
   /// Creates the synchronization objects.
   void CreateSyncObjects();
 
-  /// Create default swapchain.
+  /// Creates the default swapchain.
   void CreateSwapchain();
 
   /// Finds suitable memory type.
@@ -389,12 +343,10 @@ private:
   void EndSingleTimeCommands(VkCommandPool commandPool,
                              VkCommandBuffer commandBuffer);
 
-  /// Creates a Vulkan buffer.
   void CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
                     VkMemoryPropertyFlags properties, VkBuffer &buffer,
                     VkDeviceMemory &bufferMemory);
 
-  /// Copies data from one Vulkan buffer to another one.
   void CopyBuffer(VkCommandPool commandPool, VkBuffer srcBuffer,
                   VkBuffer dstBuffer, VkDeviceSize size);
 
@@ -413,6 +365,8 @@ private:
 
   void CopyBufferToImage(VkCommandPool commandPool, VkBuffer buffer,
                          VkImage image, uint32_t width, uint32_t height);
+
+  /// @}
 
   /// Window resources.
   std::uint32_t width_{1600U};

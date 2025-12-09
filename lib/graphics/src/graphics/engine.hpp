@@ -3,16 +3,14 @@
 #include <graphics/utils.hpp>
 #include <render/context.hpp>
 
+#include <array>
 #include <map>
 
 namespace graphics {
 
 /// Component System
 
-struct Vertex final {
-  glm::vec3 position{};
-  glm::vec2 uv{};
-};
+using Vertex = render::Vertex;
 
 using VertexShaderId = std::uint32_t;
 struct VertexShader final {
@@ -36,7 +34,6 @@ struct Mesh final {
 
 using TextureId = std::uint32_t;
 struct Texture final {
-  // TODO: Move from render:: namespace.
   const render::ImageData *image{};
 };
 
@@ -120,10 +117,16 @@ struct Resources final {
 class Engine final {
 public:
   /// Initializing
+  /// @{
 
   void Initialize();
 
+  void Deinitialize();
+
+  /// @}
+
   /// Building
+  /// @{
 
   VertexShaderId AddVertexShader(VertexShader vertexShader);
 
@@ -143,7 +146,10 @@ public:
 
   SceneId AddScene(Scene scene);
 
+  /// @}
+
   /// Updating
+  /// @{
 
   void UpdateNodeTransform(NodeId nodeId, glm::mat4 transform);
 
@@ -151,31 +157,26 @@ public:
 
   void UpdateCameraProjection(CameraId cameraId, glm::mat4 projection);
 
-  /// Rendering
+  /// @}
 
-  /// Render the frame.
+  /// Rendering
+  /// @{
+
   void Render();
 
-  /// Returns pointer to the created GLFW window.
   GLFWwindow *Window();
 
-  /// Returns the current swapchain extent.
   VkExtent2D Extent();
 
-  /// Deinitializing
-
-  /// Deinitialize the engine and destroy resources.
-  void Deinitialize();
+  /// @}
 
 private:
   Components components_{};
   Resources resources_{};
-
   render::Context context_{};
   VkRenderPass renderPass_{};
   VkCommandPool commandPool_{};
   std::array<VkCommandBuffer, render::kMaxFramesInFlight> commandBuffers_{};
-
   std::uint32_t bufferId_{};
 };
 

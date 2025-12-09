@@ -57,6 +57,7 @@ int main(int argc, char *argv[]) {
     /// Main engine loop.
     const auto window = engine.Window();
     const auto startTime = std::chrono::high_resolution_clock::now();
+    std::size_t frameCount{};
     while (!glfwWindowShouldClose(window)) {
       glfwPollEvents();
 
@@ -68,7 +69,14 @@ int main(int argc, char *argv[]) {
 
       update(engine, node, camera, time);
       engine.Render();
+      ++frameCount;
     }
+    const auto finalTime = std::chrono::high_resolution_clock::now();
+    LOG(INFO) << "FPS: "
+              << static_cast<float>(frameCount) /
+                     std::chrono::duration<float, std::chrono::seconds::period>(
+                         finalTime - startTime)
+                         .count();
 
     engine.Deinitialize();
   } catch (const std::exception &e) {

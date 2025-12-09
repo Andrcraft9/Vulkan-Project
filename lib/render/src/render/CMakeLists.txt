@@ -2,6 +2,8 @@ target_sources(
   "${PROJECT_NAME}"
   PUBLIC
     context.hpp
+    utils.hpp
   PRIVATE
     context.cpp
+    utils.cpp
 )

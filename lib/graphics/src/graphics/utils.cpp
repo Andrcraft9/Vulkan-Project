@@ -2,7 +2,7 @@
 
 namespace graphics {
 
-std::vector<char> ReadFile(fs::path path) {
+std::vector<char> ReadFile(const fs::path path) {
   std::ifstream f(path, std::ios::in | std::ios::binary);
   if (!f.is_open()) {
     throw std::runtime_error("failed to open file!");
