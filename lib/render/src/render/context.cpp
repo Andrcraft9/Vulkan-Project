@@ -927,6 +927,8 @@ void Context::UpdateUniformBuffer(const UpdateUniformBufferOptions &options) {
 }
 
 BeginFrameInfo Context::BeginFrame(const BeginFrameOptions &options) {
+  BeginFrameInfo info{false};
+
   // Waiting for the previous frame:
   vkWaitForFences(device_, 1, &inFlightFences_[currentFrame_], VK_TRUE,
                   UINT64_MAX);
@@ -937,14 +939,21 @@ BeginFrameInfo Context::BeginFrame(const BeginFrameOptions &options) {
       VK_NULL_HANDLE, &currentSwapchainImageIndex_);
   if (result == VK_ERROR_OUT_OF_DATE_KHR) {
     RecreateSwapchain(options.renderPass);
-    return BeginFrameInfo{true};
-  } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+    result =
+        vkAcquireNextImageKHR(device_, swapchain_, UINT64_MAX,
+                              imageAvailableSemaphores_[currentFrame_],
+                              VK_NULL_HANDLE, &currentSwapchainImageIndex_);
+    info.ifSwapchainRecreated = true;
+  }
+
+  if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
     throw std::runtime_error("failed to acquire swap chain image!");
   }
 
   // Only reset the fence if we are submitting work.
   vkResetFences(device_, 1, &inFlightFences_[currentFrame_]);
-  return BeginFrameInfo{false};
+
+  return info;
 }
 
 EndFrameInfo Context::EndFrame(const EndFrameOptions &options) {
