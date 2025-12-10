@@ -13,6 +13,8 @@
 
 #include <glog/logging.h>
 
+#include <vk_mem_alloc.h>
+
 #include <algorithm>
 #include <cstdint>
 #include <limits>
@@ -313,18 +315,19 @@ private:
   /// Creates the default swapchain.
   void CreateSwapchain();
 
-  /// Finds suitable memory type.
-  std::uint32_t FindMemoryType(std::uint32_t typeFilter,
-                               VkMemoryPropertyFlags properties);
-
   VkCommandBuffer BeginSingleTimeCommands(VkCommandPool commandPool);
 
   void EndSingleTimeCommands(VkCommandPool commandPool,
                              VkCommandBuffer commandBuffer);
 
   void CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
-                    VkMemoryPropertyFlags properties, VkBuffer &buffer,
-                    VkDeviceMemory &bufferMemory);
+                    VmaAllocationCreateFlags flags, VkBuffer &buffer,
+                    VmaAllocation &bufferMemory);
+
+  void CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
+                    VmaAllocationCreateFlags flags, VkBuffer &buffer,
+                    VmaAllocation &bufferMemory,
+                    VmaAllocationInfo &allocationInfo);
 
   void CopyBuffer(VkCommandPool commandPool, VkBuffer srcBuffer,
                   VkBuffer dstBuffer, VkDeviceSize size);
@@ -335,8 +338,7 @@ private:
 
   void CreateImage(std::uint32_t width, std::uint32_t height, VkFormat format,
                    VkImageTiling tiling, VkImageUsageFlags usage,
-                   VkMemoryPropertyFlags properties, VkImage &image,
-                   VkDeviceMemory &imageMemory);
+                   VkImage &image, VmaAllocation &imageMemory);
 
   void TransitionImageLayout(VkCommandBuffer commandBuffer, VkImage image,
                              VkImageLayout oldLayout, VkImageLayout newLayout,
@@ -373,6 +375,9 @@ private:
   VkQueue graphicsQueue_{VK_NULL_HANDLE};
   VkQueue presentQueue_{VK_NULL_HANDLE};
 
+  /// Vulkan memory allocator.
+  VmaAllocator vmaAllocator_{};
+
   /// Swapchain resources.
   vkb::Swapchain swapchain_{};
   std::vector<VkImage> swapchainImages_{};
@@ -402,20 +407,20 @@ private:
 
   /// Vertex buffer resources.
   std::vector<VkBuffer> vertexBuffers_{};
-  std::vector<VkDeviceMemory> vertexBufferMemories_{};
+  std::vector<VmaAllocation> vertexBufferMemories_{};
 
   /// Index buffer resources.
   std::vector<VkBuffer> indexBuffers_{};
-  std::vector<VkDeviceMemory> indexBufferMemories_{};
+  std::vector<VmaAllocation> indexBufferMemories_{};
 
   /// Uniform buffer resources.
   std::vector<VkBuffer> uniformBuffers_{};
-  std::vector<VkDeviceMemory> uniformBufferMemories_{};
-  std::vector<void *> uniformBufferMappedMemories_{};
+  std::vector<VmaAllocation> uniformBufferMemories_{};
+  std::vector<VmaAllocationInfo> uniformBufferInfos_{};
 
   /// Texture image resources.
   std::vector<VkImage> textureImages_{};
-  std::vector<VkDeviceMemory> textureImageMemories_{};
+  std::vector<VmaAllocation> textureImageMemories_{};
 
   // Texture samplers.
   std::vector<VkSampler> samplers_{};

@@ -1,33 +1,29 @@
 #include "render/context.hpp"
 
+#define VMA_IMPLEMENTATION
+#include <vk_mem_alloc.h>
+
 namespace render {
 
 void Context::Cleanup() {
-  CleanupSwapchain();
-
   for (const auto &sampler : samplers_) {
     vkDestroySampler(device_, sampler, nullptr);
   }
   samplers_.clear();
 
-  for (const auto &textureImage : textureImages_) {
-    vkDestroyImage(device_, textureImage, nullptr);
+  for (std::size_t i{0}; i < textureImages_.size(); ++i) {
+    vmaDestroyImage(vmaAllocator_, textureImages_[i], textureImageMemories_[i]);
   }
   textureImages_.clear();
-  for (const auto &textureImageMemory : textureImageMemories_) {
-    vkFreeMemory(device_, textureImageMemory, nullptr);
-  }
   textureImageMemories_.clear();
 
-  for (const auto &uniformBuffer : uniformBuffers_) {
-    vkDestroyBuffer(device_, uniformBuffer, nullptr);
+  for (std::size_t i{0}; i < uniformBuffers_.size(); ++i) {
+    vmaDestroyBuffer(vmaAllocator_, uniformBuffers_[i],
+                     uniformBufferMemories_[i]);
   }
   uniformBuffers_.clear();
-  for (const auto &uniformBufferMemory : uniformBufferMemories_) {
-    vkFreeMemory(device_, uniformBufferMemory, nullptr);
-  }
   uniformBufferMemories_.clear();
-  uniformBufferMappedMemories_.clear();
+  uniformBufferInfos_.clear();
 
   for (const auto &descriptorPool : descriptorPools_) {
     vkDestroyDescriptorPool(device_, descriptorPool, nullptr);
@@ -73,23 +69,22 @@ void Context::Cleanup() {
   }
   commandPools_.clear();
 
-  for (const auto &buffer : vertexBuffers_) {
-    vkDestroyBuffer(device_, buffer, nullptr);
+  for (std::size_t i{0}; i < vertexBuffers_.size(); ++i) {
+    vmaDestroyBuffer(vmaAllocator_, vertexBuffers_[i],
+                     vertexBufferMemories_[i]);
   }
   vertexBuffers_.clear();
-  for (const auto &memory : vertexBufferMemories_) {
-    vkFreeMemory(device_, memory, nullptr);
-  }
   vertexBufferMemories_.clear();
 
-  for (const auto &buffer : indexBuffers_) {
-    vkDestroyBuffer(device_, buffer, nullptr);
+  for (std::size_t i{0}; i < indexBuffers_.size(); ++i) {
+    vmaDestroyBuffer(vmaAllocator_, indexBuffers_[i], indexBufferMemories_[i]);
   }
   indexBuffers_.clear();
-  for (const auto &memory : indexBufferMemories_) {
-    vkFreeMemory(device_, memory, nullptr);
-  }
   indexBufferMemories_.clear();
+
+  vmaDestroyAllocator(vmaAllocator_);
+
+  CleanupSwapchain();
 
   vkb::destroy_device(device_);
   vkb::destroy_surface(instance_, surface_);
@@ -233,6 +228,16 @@ void Context::Initialize(const ContextOptions &options) {
 
   // Create sync objects.
   CreateSyncObjects();
+
+  // Vulkan memory allocator creation:
+  VmaAllocatorCreateInfo allocatorInfo{};
+  allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_3;
+  allocatorInfo.physicalDevice = physicalDevice_;
+  allocatorInfo.device = device_;
+  allocatorInfo.instance = instance_;
+  if (vmaCreateAllocator(&allocatorInfo, &vmaAllocator_) != VK_SUCCESS) {
+    throw std::runtime_error("failed to create Vulkan memory allocator!");
+  }
 }
 
 VkImageView Context::CreateImageView(const ImageViewOptions &options) {
@@ -497,24 +502,6 @@ Context::CreateCommandBuffer(const CommandBufferOptions &options) {
   return commandBuffer;
 }
 
-std::uint32_t Context::FindMemoryType(std::uint32_t typeFilter,
-                                      VkMemoryPropertyFlags properties) {
-  VkPhysicalDeviceMemoryProperties memProperties;
-  vkGetPhysicalDeviceMemoryProperties(physicalDevice_, &memProperties);
-  DLOG(INFO) << "Vertex Buffer: Find memory type: Memory type count is "
-             << memProperties.memoryTypeCount;
-  for (std::uint32_t i{0}; i < memProperties.memoryTypeCount; ++i) {
-    if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags &
-                                    properties) == properties) {
-      DLOG(INFO) << "Vertex Buffer: Find memory type: Memory type " << i
-                 << " has been chosen";
-      return i;
-    }
-  }
-
-  throw std::runtime_error("failed to find suitable memory type!");
-}
-
 VkCommandBuffer Context::BeginSingleTimeCommands(VkCommandPool commandPool) {
   VkCommandBufferAllocateInfo allocInfo{};
   allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -550,33 +537,38 @@ void Context::EndSingleTimeCommands(VkCommandPool commandPool,
 }
 
 void Context::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
-                           VkMemoryPropertyFlags properties, VkBuffer &buffer,
-                           VkDeviceMemory &bufferMemory) {
-  // Buffer creation:
+                           VmaAllocationCreateFlags flags, VkBuffer &buffer,
+                           VmaAllocation &bufferMemory) {
   VkBufferCreateInfo bufferInfo{};
   bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
   bufferInfo.size = size;
   bufferInfo.usage = usage;
   bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-  if (vkCreateBuffer(device_, &bufferInfo, nullptr, &buffer) != VK_SUCCESS) {
-    throw std::runtime_error("failed to create buffer!");
+  VmaAllocationCreateInfo allocInfo{};
+  allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
+  allocInfo.flags = flags;
+  if (vmaCreateBuffer(vmaAllocator_, &bufferInfo, &allocInfo, &buffer,
+                      &bufferMemory, nullptr) != VK_SUCCESS) {
+    throw std::runtime_error("failed to create buffer memory!");
   }
+}
 
-  // Memory requirements:
-  VkMemoryRequirements memRequirements;
-  vkGetBufferMemoryRequirements(device_, buffer, &memRequirements);
-
-  // Memory allocation:
-  VkMemoryAllocateInfo allocInfo{};
-  allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-  allocInfo.allocationSize = memRequirements.size;
-  allocInfo.memoryTypeIndex =
-      FindMemoryType(memRequirements.memoryTypeBits, properties);
-  if (vkAllocateMemory(device_, &allocInfo, nullptr, &bufferMemory) !=
-      VK_SUCCESS) {
-    throw std::runtime_error("failed to allocate buffer memory!");
+void Context::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
+                           VmaAllocationCreateFlags flags, VkBuffer &buffer,
+                           VmaAllocation &bufferMemory,
+                           VmaAllocationInfo &allocationInfo) {
+  VkBufferCreateInfo bufferInfo{};
+  bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+  bufferInfo.size = size;
+  bufferInfo.usage = usage;
+  bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+  VmaAllocationCreateInfo allocInfo{};
+  allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
+  allocInfo.flags = flags;
+  if (vmaCreateBuffer(vmaAllocator_, &bufferInfo, &allocInfo, &buffer,
+                      &bufferMemory, &allocationInfo) != VK_SUCCESS) {
+    throw std::runtime_error("failed to create buffer memory!");
   }
-  vkBindBufferMemory(device_, buffer, bufferMemory, 0);
 }
 
 void Context::CopyBuffer(VkCommandPool commandPool, VkBuffer srcBuffer,
@@ -584,8 +576,6 @@ void Context::CopyBuffer(VkCommandPool commandPool, VkBuffer srcBuffer,
   VkCommandBuffer commandBuffer = BeginSingleTimeCommands(commandPool);
 
   VkBufferCopy copyRegion{};
-  copyRegion.srcOffset = 0; // Optional
-  copyRegion.dstOffset = 0; // Optional
   copyRegion.size = size;
   vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
 
@@ -593,30 +583,31 @@ void Context::CopyBuffer(VkCommandPool commandPool, VkBuffer srcBuffer,
 }
 
 VkBuffer Context::CreateVertexBuffer(const VertexBufferOptions &options) {
-  VkBuffer stagingBuffer{VK_NULL_HANDLE};
-  VkDeviceMemory stagingBufferMemory{VK_NULL_HANDLE};
+  // Create a temporary staging buffer:
+  VkBuffer stagingBuffer{};
+  VmaAllocation stagingBufferMemory{};
   CreateBuffer(options.bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                   VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+               VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
                stagingBuffer, stagingBufferMemory);
-  // Filling the vertex buffer:
-  void *data;
-  vkMapMemory(device_, stagingBufferMemory, 0, options.bufferSize, 0, &data);
-  std::memcpy(data, options.bufferData,
-              static_cast<size_t>(options.bufferSize));
-  vkUnmapMemory(device_, stagingBufferMemory);
 
-  VkBuffer vertexBuffer{VK_NULL_HANDLE};
-  VkDeviceMemory vertexBufferMemory{VK_NULL_HANDLE};
-  CreateBuffer(
-      options.bufferSize,
-      VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer, vertexBufferMemory);
+  // Filling the staging buffer:
+  if (vmaCopyMemoryToAllocation(vmaAllocator_, options.bufferData,
+                                stagingBufferMemory, 0,
+                                options.bufferSize) != VK_SUCCESS) {
+    throw std::runtime_error("failed to copy data to vertex buffer memory!");
+  }
+
+  // Create the vertex buffer:
+  VkBuffer vertexBuffer{};
+  VmaAllocation vertexBufferMemory{};
+  CreateBuffer(options.bufferSize,
+               VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+                   VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+               0U, vertexBuffer, vertexBufferMemory);
   CopyBuffer(options.commandPool, stagingBuffer, vertexBuffer,
              options.bufferSize);
 
-  vkDestroyBuffer(device_, stagingBuffer, nullptr);
-  vkFreeMemory(device_, stagingBufferMemory, nullptr);
+  vmaDestroyBuffer(vmaAllocator_, stagingBuffer, stagingBufferMemory);
 
   vertexBuffers_.push_back(vertexBuffer);
   vertexBufferMemories_.push_back(vertexBufferMemory);
@@ -624,30 +615,31 @@ VkBuffer Context::CreateVertexBuffer(const VertexBufferOptions &options) {
 }
 
 VkBuffer Context::CreateIndexBuffer(const IndexBufferOptions &options) {
-  VkBuffer stagingBuffer;
-  VkDeviceMemory stagingBufferMemory;
+  // Create a temporary staging buffer:
+  VkBuffer stagingBuffer{};
+  VmaAllocation stagingBufferMemory{};
   CreateBuffer(options.bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                   VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+               VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
                stagingBuffer, stagingBufferMemory);
 
-  void *data;
-  vkMapMemory(device_, stagingBufferMemory, 0, options.bufferSize, 0, &data);
-  std::memcpy(data, options.bufferData,
-              static_cast<size_t>(options.bufferSize));
-  vkUnmapMemory(device_, stagingBufferMemory);
+  // Filling the staging buffer:
+  if (vmaCopyMemoryToAllocation(vmaAllocator_, options.bufferData,
+                                stagingBufferMemory, 0,
+                                options.bufferSize) != VK_SUCCESS) {
+    throw std::runtime_error("failed to copy data to vertex buffer memory!");
+  }
 
-  VkBuffer indexBuffer{VK_NULL_HANDLE};
-  VkDeviceMemory indexBufferMemory{VK_NULL_HANDLE};
-  CreateBuffer(
-      options.bufferSize,
-      VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, indexBufferMemory);
+  // Create the index buffer:
+  VkBuffer indexBuffer{};
+  VmaAllocation indexBufferMemory{};
+  CreateBuffer(options.bufferSize,
+               VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+                   VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+               0U, indexBuffer, indexBufferMemory);
   CopyBuffer(options.commandPool, stagingBuffer, indexBuffer,
              options.bufferSize);
 
-  vkDestroyBuffer(device_, stagingBuffer, nullptr);
-  vkFreeMemory(device_, stagingBufferMemory, nullptr);
+  vmaDestroyBuffer(vmaAllocator_, stagingBuffer, stagingBufferMemory);
 
   indexBuffers_.push_back(indexBuffer);
   indexBufferMemories_.push_back(indexBufferMemory);
@@ -655,20 +647,18 @@ VkBuffer Context::CreateIndexBuffer(const IndexBufferOptions &options) {
 }
 
 VkBuffer Context::CreateUniformBuffer() {
-  VkDeviceSize bufferSize = sizeof(UniformBufferObject);
-  VkBuffer uniformBuffer{VK_NULL_HANDLE};
-  VkDeviceMemory uniformBufferMemory{VK_NULL_HANDLE};
+  VkDeviceSize bufferSize{sizeof(UniformBufferObject)};
+  VkBuffer uniformBuffer{};
+  VmaAllocation uniformBufferMemory{};
+  VmaAllocationInfo uniformBufferMemoryInfo{};
   CreateBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                   VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-               uniformBuffer, uniformBufferMemory);
-
-  void *mapped_memory{nullptr};
-  vkMapMemory(device_, uniformBufferMemory, 0, bufferSize, 0, &mapped_memory);
+               VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
+                   VMA_ALLOCATION_CREATE_MAPPED_BIT,
+               uniformBuffer, uniformBufferMemory, uniformBufferMemoryInfo);
 
   uniformBuffers_.push_back(uniformBuffer);
   uniformBufferMemories_.push_back(uniformBufferMemory);
-  uniformBufferMappedMemories_.push_back(mapped_memory);
+  uniformBufferInfos_.push_back(uniformBufferMemoryInfo);
   return uniformBuffer;
 }
 
@@ -840,7 +830,7 @@ void Context::RecordCommandBuffer(const RecordCommandBufferOptions &options) {
 }
 
 void Context::UpdateUniformBuffer(const UpdateUniformBufferOptions &options) {
-  memcpy(uniformBufferMappedMemories_[options.uniformBufferIndex],
+  memcpy(uniformBufferInfos_[options.uniformBufferIndex].pMappedData,
          &options.data, sizeof(options.data));
 }
 
@@ -939,17 +929,18 @@ VkImage Context::CreateTextureImage(const TextureImageOptions &options) {
   int texComponents{options.imageData->Components()};
   VkDeviceSize imageSize = texWidth * texHeight * texComponents;
 
-  // Create staging buffer and copy image data.
-  VkBuffer stagingBuffer;
-  VkDeviceMemory stagingBufferMemory;
+  // Create a temporary staging buffer and copy image data.
+  VkBuffer stagingBuffer{};
+  VmaAllocation stagingBufferMemory{};
   CreateBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                   VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+               VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
                stagingBuffer, stagingBufferMemory);
-  void *data;
-  vkMapMemory(device_, stagingBufferMemory, 0, imageSize, 0, &data);
-  memcpy(data, options.imageData->Data(), static_cast<size_t>(imageSize));
-  vkUnmapMemory(device_, stagingBufferMemory);
+
+  if (vmaCopyMemoryToAllocation(vmaAllocator_, options.imageData->Data(),
+                                stagingBufferMemory, 0,
+                                imageSize) != VK_SUCCESS) {
+    throw std::runtime_error("failed to copy data to texture image memory!");
+  }
 
   VkFormat format{};
   switch (texComponents) {
@@ -972,12 +963,11 @@ VkImage Context::CreateTextureImage(const TextureImageOptions &options) {
   }
 
   // Create an image.
-  VkImage textureImage;
-  VkDeviceMemory textureImageMemory;
+  VkImage textureImage{};
+  VmaAllocation textureImageMemory{};
   CreateImage(texWidth, texHeight, format, VK_IMAGE_TILING_OPTIMAL,
               VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-              VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage,
-              textureImageMemory);
+              textureImage, textureImageMemory);
 
   // Transition the texture image to VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL.
   TransitionImageLayout(options.commandPool, textureImage,
@@ -992,8 +982,7 @@ VkImage Context::CreateTextureImage(const TextureImageOptions &options) {
                         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-  vkDestroyBuffer(device_, stagingBuffer, nullptr);
-  vkFreeMemory(device_, stagingBufferMemory, nullptr);
+  vmaDestroyBuffer(vmaAllocator_, stagingBuffer, stagingBufferMemory);
 
   textureImages_.push_back(textureImage);
   textureImageMemories_.push_back(textureImageMemory);
@@ -1062,9 +1051,8 @@ void Context::RecreateSwapchain() {
 
 void Context::CreateImage(std::uint32_t width, std::uint32_t height,
                           VkFormat format, VkImageTiling tiling,
-                          VkImageUsageFlags usage,
-                          VkMemoryPropertyFlags properties, VkImage &image,
-                          VkDeviceMemory &imageMemory) {
+                          VkImageUsageFlags usage, VkImage &image,
+                          VmaAllocation &imageMemory) {
   VkImageCreateInfo imageInfo{};
   imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
   imageInfo.imageType = VK_IMAGE_TYPE_2D;
@@ -1079,24 +1067,12 @@ void Context::CreateImage(std::uint32_t width, std::uint32_t height,
   imageInfo.usage = usage;
   imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
   imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-  imageInfo.flags = 0; // Optional
-  if (vkCreateImage(device_, &imageInfo, nullptr, &image) != VK_SUCCESS) {
-    throw std::runtime_error("failed to create image!");
+  VmaAllocationCreateInfo allocInfo{};
+  allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
+  if (vmaCreateImage(vmaAllocator_, &imageInfo, &allocInfo, &image,
+                     &imageMemory, nullptr) != VK_SUCCESS) {
+    throw std::runtime_error("failed to create image memory!");
   }
-
-  // Allocate device memory for an image.
-  VkMemoryRequirements memRequirements;
-  vkGetImageMemoryRequirements(device_, image, &memRequirements);
-  VkMemoryAllocateInfo allocInfo{};
-  allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-  allocInfo.allocationSize = memRequirements.size;
-  allocInfo.memoryTypeIndex =
-      FindMemoryType(memRequirements.memoryTypeBits, properties);
-  if (vkAllocateMemory(device_, &allocInfo, nullptr, &imageMemory) !=
-      VK_SUCCESS) {
-    throw std::runtime_error("failed to allocate image memory!");
-  }
-  vkBindImageMemory(device_, image, imageMemory, 0);
 }
 
 void Context::TransitionImageLayout(VkCommandBuffer commandBuffer,
