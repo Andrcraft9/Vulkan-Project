@@ -71,8 +71,11 @@ void Context::Cleanup() {
 
   for (std::size_t i{0}; i < kMaxFramesInFlight; ++i) {
     vkDestroySemaphore(device_, imageAvailableSemaphores_[i], nullptr);
-    vkDestroySemaphore(device_, renderFinishedSemaphores_[i], nullptr);
     vkDestroyFence(device_, inFlightFences_[i], nullptr);
+  }
+
+  for (std::size_t i{0}; i < kMaxSwapchainImages; ++i) {
+    vkDestroySemaphore(device_, renderFinishedSemaphores_[i], nullptr);
   }
 
   for (const auto &commandPool : commandPools_) {
@@ -111,10 +114,6 @@ void Context::InitWindow() {
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
   window_ = glfwCreateWindow(width_, height_, "Vulkan", nullptr, nullptr);
-
-  // Handling resizes explicitly:
-  glfwSetWindowUserPointer(window_, this);
-  glfwSetFramebufferSizeCallback(window_, FramebufferResizeCallback);
 }
 
 void Context::CreateSwapchain() {
@@ -131,25 +130,36 @@ void Context::CreateSwapchain() {
     throw std::runtime_error("failed to get swapchain image views" +
                              image_view_ret.error().message());
   }
+  if (image_view_ret->size() > kMaxSwapchainImages) {
+    throw std::runtime_error("swapchain image count exceeds maximum limit");
+  }
+  LOG(INFO) << "Swapchain created with " << image_view_ret->size() << " images";
   swapchainImageViews_ = *image_view_ret;
 }
 
 void Context::CreateSyncObjects() {
-  imageAvailableSemaphores_.resize(kMaxFramesInFlight);
-  renderFinishedSemaphores_.resize(kMaxFramesInFlight);
-  inFlightFences_.resize(kMaxFramesInFlight);
   VkSemaphoreCreateInfo semaphoreInfo{};
   semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
   VkFenceCreateInfo fenceInfo{};
   fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
   fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+  imageAvailableSemaphores_.resize(kMaxFramesInFlight);
+  inFlightFences_.resize(kMaxFramesInFlight);
   for (std::size_t i{0}; i < kMaxFramesInFlight; ++i) {
     if (vkCreateSemaphore(device_, &semaphoreInfo, nullptr,
                           &imageAvailableSemaphores_[i]) != VK_SUCCESS ||
-        vkCreateSemaphore(device_, &semaphoreInfo, nullptr,
-                          &renderFinishedSemaphores_[i]) != VK_SUCCESS ||
+
         vkCreateFence(device_, &fenceInfo, nullptr, &inFlightFences_[i]) !=
             VK_SUCCESS) {
+      throw std::runtime_error("failed to create semaphores or fences!");
+    }
+  }
+
+  renderFinishedSemaphores_.resize(kMaxSwapchainImages);
+  for (std::size_t i{0}; i < kMaxSwapchainImages; ++i) {
+    if (vkCreateSemaphore(device_, &semaphoreInfo, nullptr,
+                          &renderFinishedSemaphores_[i]) != VK_SUCCESS) {
       throw std::runtime_error("failed to create semaphores!");
     }
   }
@@ -161,6 +171,7 @@ void Context::Initialize(const ContextOptions &options) {
 
   // Create instance:
   vkb::InstanceBuilder instance_builder{};
+  instance_builder.require_api_version(VK_API_VERSION_1_3);
   instance_builder.use_default_debug_messenger();
   if (options.enableValidationLayers) {
     instance_builder.request_validation_layers();
@@ -185,6 +196,7 @@ void Context::Initialize(const ContextOptions &options) {
 
   // Pick physical device:
   vkb::PhysicalDeviceSelector selector{instance_, surface_};
+  selector.add_required_extension("VK_KHR_swapchain");
   auto physical_device_ret = selector.select();
   if (!physical_device_ret) {
     throw std::runtime_error("failed to select physical device: " +
@@ -934,6 +946,17 @@ BeginFrameInfo Context::BeginFrame(const BeginFrameOptions &options) {
       device_, swapchain_, UINT64_MAX, imageAvailableSemaphores_[currentFrame_],
       VK_NULL_HANDLE, &currentSwapchainImageIndex_);
   if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+    LOG(INFO) << "BeginFrame(): Swapchain is out of date, recreating swapchain";
+    RecreateSwapchain(options.renderPass);
+    result =
+        vkAcquireNextImageKHR(device_, swapchain_, UINT64_MAX,
+                              imageAvailableSemaphores_[currentFrame_],
+                              VK_NULL_HANDLE, &currentSwapchainImageIndex_);
+    info.ifSwapchainRecreated = true;
+  }
+
+  if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+    LOG(INFO) << "BeginFrame(): Recreating swapchain again";
     RecreateSwapchain(options.renderPass);
     result =
         vkAcquireNextImageKHR(device_, swapchain_, UINT64_MAX,
@@ -964,7 +987,7 @@ EndFrameInfo Context::EndFrame(const EndFrameOptions &options) {
   submitInfo.pWaitDstStageMask = waitStages;
   submitInfo.commandBufferCount = 1;
   submitInfo.pCommandBuffers = &options.commandBuffer;
-  VkSemaphore signalSemaphores[] = {renderFinishedSemaphores_[currentFrame_]};
+  VkSemaphore signalSemaphores[] = {renderFinishedSemaphores_[currentSwapchainImageIndex_]};
   submitInfo.signalSemaphoreCount = 1;
   submitInfo.pSignalSemaphores = signalSemaphores;
   if (vkQueueSubmit(graphicsQueue_, 1, &submitInfo,
@@ -985,9 +1008,8 @@ EndFrameInfo Context::EndFrame(const EndFrameOptions &options) {
   presentInfo.pImageIndices = &currentSwapchainImageIndex_;
   presentInfo.pResults = nullptr; // Optional
   VkResult result = vkQueuePresentKHR(presentQueue_, &presentInfo);
-  if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR ||
-      framebufferResized_) {
-    framebufferResized_ = false;
+  if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
+    LOG(INFO) << "EndFrame(): Swapchain is out of date, recreating swapchain";
     RecreateSwapchain(options.renderPass);
   } else if (result != VK_SUCCESS) {
     throw std::runtime_error("failed to present swap chain image!");

@@ -3,7 +3,8 @@
 A lightweight graphics engine built on top of Vulkan. The project is primarily intended for graphics engine prototyping and for designing a higher-level abstraction layer over the Vulkan API.
 
 ## Build Requirements
-Before building, ensure the `VCPKG_ROOT` environment variable is defined.
+- Vulkan API 1.3 version is required.
+- Before building, ensure the `VCPKG_ROOT` environment variable is defined.
 
 ### Ubuntu 20.04
 Install the following dependencies:

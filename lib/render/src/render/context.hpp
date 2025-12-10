@@ -24,7 +24,8 @@
 
 namespace render {
 
-constexpr int kMaxFramesInFlight{2};
+constexpr std::uint8_t kMaxFramesInFlight{2};
+constexpr std::uint8_t kMaxSwapchainImages{4};
 
 struct Vertex final {
   glm::vec3 position{};
@@ -319,12 +320,6 @@ private:
   /// @name Internal
   /// @{
 
-  static void FramebufferResizeCallback(GLFWwindow *window, int width,
-                                        int height) {
-    auto app = reinterpret_cast<Context *>(glfwGetWindowUserPointer(window));
-    app->framebufferResized_ = true;
-  }
-
   /// Initializes GLFW and creates a window.
   void InitWindow();
 
@@ -445,7 +440,6 @@ private:
   std::vector<VkSemaphore> imageAvailableSemaphores_{};
   std::vector<VkSemaphore> renderFinishedSemaphores_{};
   std::vector<VkFence> inFlightFences_{};
-  bool framebufferResized_{false};
 };
 
 } // namespace render
