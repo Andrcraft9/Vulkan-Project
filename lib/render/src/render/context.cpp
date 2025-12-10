@@ -339,8 +339,6 @@ Context::CreateGraphicsPipeline(const GraphicsPipelineOptions &options) {
                                                     fragShaderStageInfo};
 
   // Dynamic state.
-  // Specify states that can actually be changed without recreating the
-  // pipeline at draw time.
   std::vector<VkDynamicState> dynamicStates = {VK_DYNAMIC_STATE_VIEWPORT,
                                                VK_DYNAMIC_STATE_SCISSOR};
   VkPipelineDynamicStateCreateInfo dynamicState{};
@@ -350,8 +348,6 @@ Context::CreateGraphicsPipeline(const GraphicsPipelineOptions &options) {
   dynamicState.pDynamicStates = dynamicStates.data();
 
   // Vertex input.
-  // Describe the format of the vertex data that will be passed to the vertex
-  // shader.
   VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
   vertexInputInfo.sType =
       VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -362,8 +358,6 @@ Context::CreateGraphicsPipeline(const GraphicsPipelineOptions &options) {
   vertexInputInfo.pVertexAttributeDescriptions = options.vertexInputAttribues.data();
 
   // Input assembly.
-  // Describe what kind of geometry will be drawn from the vertices and if
-  // primitive restart should be enabled.
   VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
   inputAssembly.sType =
       VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -371,8 +365,6 @@ Context::CreateGraphicsPipeline(const GraphicsPipelineOptions &options) {
   inputAssembly.primitiveRestartEnable = VK_FALSE;
 
   // Viewports and scissors.
-  // A viewport basically describes the region of the framebuffer that the
-  // output will be rendered to.
   VkViewport viewport{};
   viewport.x = 0.0f;
   viewport.y = 0.0f;
@@ -380,11 +372,6 @@ Context::CreateGraphicsPipeline(const GraphicsPipelineOptions &options) {
   viewport.height = static_cast<float>(options.viewportExtent.height);
   viewport.minDepth = 0.0f;
   viewport.maxDepth = 1.0f;
-  // While viewports define the transformation from the image to the
-  // framebuffer, scissor rectangles define in which regions pixels will
-  // actually be stored. Any pixels outside the scissor rectangles will be
-  // discarded by the rasterizer. They function like a filter rather than a
-  // transformation.
   VkRect2D scissor{};
   scissor.offset = {0, 0};
   scissor.extent = swapchain_.extent;
@@ -396,11 +383,6 @@ Context::CreateGraphicsPipeline(const GraphicsPipelineOptions &options) {
   viewportState.pScissors = &scissor;
 
   // Rasterizer.
-  // The rasterizer takes the geometry that is shaped by the vertices from the
-  // vertex shader and turns it into fragments to be colored by the fragment
-  // shader. It also performs depth testing, face culling and the scissor
-  // test, and it can be configured to output fragments that fill entire
-  // polygons or just the edges (wireframe rendering).
   VkPipelineRasterizationStateCreateInfo rasterizer{};
   rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
   rasterizer.depthClampEnable = VK_FALSE;
