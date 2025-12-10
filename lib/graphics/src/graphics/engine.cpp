@@ -165,7 +165,6 @@ SurfaceId Engine::AddSurface(Surface surface) {
       resources_.fragmentShaders[material.shader];
   render::GraphicsPipelineOptions pipelineOptions{};
   pipelineOptions.pipelineLayout = pipelineLayout;
-  pipelineOptions.renderPass = renderPass_;
   pipelineOptions.vertexShader = vertexShaderModule;
   pipelineOptions.vertexInputBinding = render::GetBindingDescription();
   pipelineOptions.vertexInputAttribues = render::GetAttributeDescriptions();
@@ -301,14 +300,6 @@ void Engine::Initialize() {
   LOG(INFO) << "Initializing the engine...";
   context_.Initialize(contextOptions);
 
-  LOG(INFO) << "Creating a render pass...";
-  render::RenderPassOptions renderPassOptions{};
-  renderPassOptions.format = context_.GetSwapchainImageFormat();
-  renderPass_ = context_.CreateRenderPass(renderPassOptions);
-
-  LOG(INFO) << "Creating framebuffers...";
-  context_.CreateSwapchainFramebuffers(renderPass_);
-
   LOG(INFO) << "Creating a command pool...";
   render::CommandPoolOptions commandPoolOptions{};
   commandPool_ = context_.CreateCommandPool(commandPoolOptions);
@@ -327,7 +318,6 @@ void Engine::Initialize() {
 
 void Engine::Render() {
   render::BeginFrameOptions beginFrameOptions{};
-  beginFrameOptions.renderPass = renderPass_;
   context_.BeginFrame(beginFrameOptions);
 
   for (const auto &[sceneId, scene] : components_.scenes) {
@@ -341,7 +331,6 @@ void Engine::Render() {
 
       render::RecordCommandBufferOptions recordOptions{};
       recordOptions.commandBuffer = commandBuffers_[bufferId_];
-      recordOptions.renderPass = renderPass_;
       recordOptions.vertexBuffer = meshRes.vertexBuffer;
       recordOptions.indexBuffer = meshRes.indexBuffer;
       recordOptions.indexCount = mesh.indices.size();
@@ -361,7 +350,6 @@ void Engine::Render() {
   }
 
   render::EndFrameOptions endFrameOptions{};
-  endFrameOptions.renderPass = renderPass_;
   endFrameOptions.commandBuffer = commandBuffers_[bufferId_];
   context_.EndFrame(endFrameOptions);
 

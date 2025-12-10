@@ -86,12 +86,6 @@ struct RenderPassOptions final {
   VkFormat format{};
 };
 
-struct FrameBufferOptions final {
-  VkRenderPass renderPass{VK_NULL_HANDLE};
-  VkImageView imageAttachment{VK_NULL_HANDLE};
-  VkExtent2D extent{};
-};
-
 struct DescriptorSetLayoutBindingOptions final {
   std::uint32_t binding{};
   VkDescriptorType type{};
@@ -112,7 +106,6 @@ struct GraphicsPipelineOptions final {
   std::vector<VkVertexInputAttributeDescription> vertexInputAttribues{};
   VkShaderModule fragmentShader{VK_NULL_HANDLE};
   VkPipelineLayout pipelineLayout{VK_NULL_HANDLE};
-  VkRenderPass renderPass{VK_NULL_HANDLE};
   VkPrimitiveTopology topology{};
   VkPolygonMode polygonMode{};
   VkExtent2D viewportExtent{};
@@ -172,7 +165,6 @@ struct RecordCommandBufferOptions final {
   VkPipeline pipeline{VK_NULL_HANDLE};
   VkPipelineLayout pipelineLayout{VK_NULL_HANDLE};
   VkDescriptorSet descriptorSet{VK_NULL_HANDLE};
-  VkRenderPass renderPass{VK_NULL_HANDLE};
   VkClearValue clearColor{};
   VkCommandBuffer commandBuffer{VK_NULL_HANDLE};
   VkBuffer vertexBuffer{VK_NULL_HANDLE};
@@ -181,7 +173,6 @@ struct RecordCommandBufferOptions final {
 };
 
 struct BeginFrameOptions final {
-  VkRenderPass renderPass{VK_NULL_HANDLE};
 };
 
 struct UpdateUniformBufferOptions final {
@@ -194,7 +185,6 @@ struct BeginFrameInfo final {
 };
 
 struct EndFrameOptions final {
-  VkRenderPass renderPass{VK_NULL_HANDLE};
   VkCommandBuffer commandBuffer{VK_NULL_HANDLE};
 };
 
@@ -248,15 +238,9 @@ public:
   /// @name Resource Creation
   /// @{
 
-  void CreateSwapchainFramebuffers(VkRenderPass renderPass);
-
   VkImageView CreateImageView(const ImageViewOptions &options);
 
   VkShaderModule CreateShaderModule(const ShaderModuleOptions &options);
-
-  VkRenderPass CreateRenderPass(const RenderPassOptions &options);
-
-  VkFramebuffer CreateFramebuffer(const FrameBufferOptions &options);
 
   VkDescriptorSetLayout
   CreateDescriptorSetLayout(const DescriptorSetLayoutOptions &options);
@@ -347,15 +331,26 @@ private:
 
   void CleanupSwapchain();
 
-  void RecreateSwapchain(VkRenderPass renderPass);
+  void RecreateSwapchain();
 
   void CreateImage(std::uint32_t width, std::uint32_t height, VkFormat format,
                    VkImageTiling tiling, VkImageUsageFlags usage,
                    VkMemoryPropertyFlags properties, VkImage &image,
                    VkDeviceMemory &imageMemory);
 
+  void TransitionImageLayout(VkCommandBuffer commandBuffer, VkImage image,
+                             VkImageLayout oldLayout, VkImageLayout newLayout,
+                             VkAccessFlags srcAccessMask,
+                             VkAccessFlags dstAccessMask,
+                             VkPipelineStageFlags srcStage,
+                             VkPipelineStageFlags dstStage);
+
+  void TransitionImageLayout(VkCommandBuffer commandBuffer, VkImage image,
+                             VkImageLayout oldLayout,
+                             VkImageLayout newLayout);
+
   void TransitionImageLayout(VkCommandPool commandPool, VkImage image,
-                             VkFormat format, VkImageLayout oldLayout,
+                             VkImageLayout oldLayout,
                              VkImageLayout newLayout);
 
   void CopyBufferToImage(VkCommandPool commandPool, VkBuffer buffer,
@@ -380,8 +375,8 @@ private:
 
   /// Swapchain resources.
   vkb::Swapchain swapchain_{};
+  std::vector<VkImage> swapchainImages_{};
   std::vector<VkImageView> swapchainImageViews_{};
-  std::vector<VkFramebuffer> swapchainFramebuffers_{};
   std::uint32_t currentSwapchainImageIndex_{};
 
   /// Image view resources.
@@ -389,12 +384,6 @@ private:
 
   /// Shader module resources.
   std::vector<VkShaderModule> shaderModules_{};
-
-  /// Render pass resources.
-  std::vector<VkRenderPass> renderPasses_{};
-
-  /// Framebuffer resources.
-  std::vector<VkFramebuffer> framebuffers_{};
 
   /// Pipeline layout resources.
   std::vector<VkPipelineLayout> pipelineLayouts_;
@@ -414,9 +403,11 @@ private:
   /// Vertex buffer resources.
   std::vector<VkBuffer> vertexBuffers_{};
   std::vector<VkDeviceMemory> vertexBufferMemories_{};
+
   /// Index buffer resources.
   std::vector<VkBuffer> indexBuffers_{};
   std::vector<VkDeviceMemory> indexBufferMemories_{};
+
   /// Uniform buffer resources.
   std::vector<VkBuffer> uniformBuffers_{};
   std::vector<VkDeviceMemory> uniformBufferMemories_{};
@@ -435,11 +426,11 @@ private:
   /// Descriptor set resources.
   std::vector<VkDescriptorSet> descriptorSets_{};
 
-  std::uint32_t currentFrame_{0};
-
+  /// Synchronization resources.
   std::vector<VkSemaphore> imageAvailableSemaphores_{};
   std::vector<VkSemaphore> renderFinishedSemaphores_{};
   std::vector<VkFence> inFlightFences_{};
+  std::uint32_t currentFrame_{0};
 };
 
 } // namespace render

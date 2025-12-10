@@ -174,7 +174,6 @@ private:
   Components components_{};
   Resources resources_{};
   render::Context context_{};
-  VkRenderPass renderPass_{};
   VkCommandPool commandPool_{};
   std::array<VkCommandBuffer, render::kMaxFramesInFlight> commandBuffers_{};
   std::uint32_t bufferId_{};

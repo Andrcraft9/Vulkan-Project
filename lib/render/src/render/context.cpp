@@ -49,16 +49,6 @@ void Context::Cleanup() {
   }
   pipelineLayouts_.clear();
 
-  for (const auto &framebuffer : framebuffers_) {
-    vkDestroyFramebuffer(device_, framebuffer, nullptr);
-  }
-  framebuffers_.clear();
-
-  for (const auto &renderPass : renderPasses_) {
-    vkDestroyRenderPass(device_, renderPass, nullptr);
-  }
-  renderPasses_.clear();
-
   for (const auto &shaderModule : shaderModules_) {
     vkDestroyShaderModule(device_, shaderModule, nullptr);
   }
@@ -125,6 +115,13 @@ void Context::CreateSwapchain() {
   }
   swapchain_ = swapchain_ret.value();
 
+  auto image_ret = swapchain_.get_images();
+  if (!image_ret) {
+    throw std::runtime_error("failed to get swapchain images" + image_ret.error().message());
+  }
+  LOG(INFO) << "Swapchain created with " << image_ret->size() << " images";
+  swapchainImages_ = std::move(*image_ret);
+
   auto image_view_ret = swapchain_.get_image_views();
   if (!image_view_ret) {
     throw std::runtime_error("failed to get swapchain image views" +
@@ -133,8 +130,7 @@ void Context::CreateSwapchain() {
   if (image_view_ret->size() > kMaxSwapchainImages) {
     throw std::runtime_error("swapchain image count exceeds maximum limit");
   }
-  LOG(INFO) << "Swapchain created with " << image_view_ret->size() << " images";
-  swapchainImageViews_ = *image_view_ret;
+  swapchainImageViews_ = std::move(*image_view_ret);
 }
 
 void Context::CreateSyncObjects() {
@@ -197,6 +193,10 @@ void Context::Initialize(const ContextOptions &options) {
   // Pick physical device:
   vkb::PhysicalDeviceSelector selector{instance_, surface_};
   selector.add_required_extension("VK_KHR_swapchain");
+  VkPhysicalDeviceVulkan13Features features13{};
+  features13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
+  features13.dynamicRendering = VK_TRUE;
+  selector.set_required_features_13(features13);
   auto physical_device_ret = selector.select();
   if (!physical_device_ret) {
     throw std::runtime_error("failed to select physical device: " +
@@ -233,18 +233,6 @@ void Context::Initialize(const ContextOptions &options) {
 
   // Create sync objects.
   CreateSyncObjects();
-}
-
-void Context::CreateSwapchainFramebuffers(VkRenderPass renderPass) {
-  for (const auto &imageView : swapchainImageViews_) {
-    FrameBufferOptions options{};
-    options.renderPass = renderPass;
-    options.extent = swapchain_.extent;
-    options.imageAttachment = imageView;
-    const auto framebuffer = CreateFramebuffer(options);
-    framebuffers_.pop_back();
-    swapchainFramebuffers_.push_back(framebuffer);
-  }
 }
 
 VkImageView Context::CreateImageView(const ImageViewOptions &options) {
@@ -285,92 +273,6 @@ VkShaderModule Context::CreateShaderModule(const ShaderModuleOptions &options) {
 
   shaderModules_.push_back(shaderModule);
   return shaderModule;
-}
-
-VkRenderPass Context::CreateRenderPass(const RenderPassOptions &options) {
-  // Attachment description:
-  VkAttachmentDescription colorAttachment{};
-  colorAttachment.format = options.format;
-  colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-  colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-  colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-  colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-  colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-  colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-  colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-
-  // Attachment references.
-  // Specifies which attachment to reference by its index in the attachment
-  // descriptions array.
-  VkAttachmentReference colorAttachmentRef{};
-  colorAttachmentRef.attachment = 0;
-  colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-  // Subpasses.
-  // Subsequent rendering operations that depend on the contents of
-  // framebuffers in previous passes.
-  VkSubpassDescription subpass{};
-  subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-  subpass.colorAttachmentCount = 1;
-  subpass.pColorAttachments = &colorAttachmentRef;
-
-  // Subpass dependencies.
-  // The subpasses in a render pass automatically take care of image layout
-  // transitions. These transitions are controlled by subpass dependencies,
-  // which specify memory and execution dependencies between subpasses. The
-  // operations right before and right after this subpass also count as
-  // implicit "subpasses".
-  VkSubpassDependency dependency{};
-  dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-  dependency.dstSubpass = 0;
-  dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-  dependency.srcAccessMask = 0;
-  dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-  dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-
-  // Render pass.
-  VkRenderPassCreateInfo renderPassInfo{};
-  renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-  renderPassInfo.attachmentCount = 1;
-  renderPassInfo.pAttachments = &colorAttachment;
-  renderPassInfo.subpassCount = 1;
-  renderPassInfo.pSubpasses = &subpass;
-  renderPassInfo.dependencyCount = 1;
-  renderPassInfo.pDependencies = &dependency;
-
-  VkRenderPass renderPass{VK_NULL_HANDLE};
-  if (vkCreateRenderPass(device_, &renderPassInfo, nullptr, &renderPass) !=
-      VK_SUCCESS) {
-    throw std::runtime_error("failed to create render pass!");
-  }
-
-  renderPasses_.push_back(renderPass);
-  return renderPass;
-}
-
-VkFramebuffer Context::CreateFramebuffer(const FrameBufferOptions &options) {
-  VkImageView attachments[] = {options.imageAttachment};
-  VkFramebufferCreateInfo framebufferInfo{};
-  framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-  // You can only use a framebuffer with the render passes that it is
-  // compatible with, which roughly means that they use the same number and
-  // type of attachments.
-  framebufferInfo.renderPass = options.renderPass;
-  framebufferInfo.attachmentCount = 1;
-  framebufferInfo.pAttachments = attachments;
-  framebufferInfo.width = options.extent.width;
-  framebufferInfo.height = options.extent.height;
-  // Our swap chain images are single images, so the number of layers is 1.
-  framebufferInfo.layers = 1;
-
-  VkFramebuffer framebuffer{VK_NULL_HANDLE};
-  if (vkCreateFramebuffer(device_, &framebufferInfo, nullptr, &framebuffer) !=
-      VK_SUCCESS) {
-    throw std::runtime_error("failed to create framebuffer!");
-  }
-
-  framebuffers_.push_back(framebuffer);
-  return framebuffer;
 }
 
 VkDescriptorSetLayout
@@ -548,9 +450,17 @@ Context::CreateGraphicsPipeline(const GraphicsPipelineOptions &options) {
   colorBlending.blendConstants[2] = 0.0f; // Optional
   colorBlending.blendConstants[3] = 0.0f; // Optional
 
+  // Pipeline rendering info (for dynamic rendering).
+  VkPipelineRenderingCreateInfo pipeline_rendering_info{};
+  pipeline_rendering_info.sType =
+      VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+  pipeline_rendering_info.colorAttachmentCount = 1;
+  pipeline_rendering_info.pColorAttachmentFormats = &swapchain_.image_format;
+
   // Graphics pipeline:
   VkGraphicsPipelineCreateInfo pipelineInfo{};
   pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+  pipelineInfo.pNext = &pipeline_rendering_info;
   pipelineInfo.stageCount = 2;
   pipelineInfo.pStages = shaderStages;
   pipelineInfo.pVertexInputState = &vertexInputInfo;
@@ -562,10 +472,7 @@ Context::CreateGraphicsPipeline(const GraphicsPipelineOptions &options) {
   pipelineInfo.pColorBlendState = &colorBlending;
   pipelineInfo.pDynamicState = &dynamicState;
   pipelineInfo.layout = options.pipelineLayout;
-  pipelineInfo.renderPass = options.renderPass;
-  pipelineInfo.subpass = 0;
-  pipelineInfo.basePipelineHandle = VK_NULL_HANDLE; // Optional
-  pipelineInfo.basePipelineIndex = -1;              // Optional
+  pipelineInfo.renderPass = VK_NULL_HANDLE; // Not used with dynamic rendering
   VkPipeline pipeline{VK_NULL_HANDLE};
   if (vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &pipelineInfo,
                                 nullptr, &pipeline) != VK_SUCCESS) {
@@ -884,18 +791,29 @@ void Context::RecordCommandBuffer(const RecordCommandBufferOptions &options) {
     throw std::runtime_error("failed to begin recording command buffer!");
   }
 
+  // Before starting rendering, transition the swapchain image to COLOR_ATTACHMENT_OPTIMAL.
+  TransitionImageLayout(
+      options.commandBuffer, swapchainImages_[currentSwapchainImageIndex_],
+      VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, 0,
+      VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+      VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+
   // Starting a render pass:
-  VkRenderPassBeginInfo renderPassInfo{};
-  renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-  renderPassInfo.renderPass = options.renderPass;
-  renderPassInfo.framebuffer =
-      swapchainFramebuffers_[currentSwapchainImageIndex_];
-  renderPassInfo.renderArea.offset = {0, 0};
-  renderPassInfo.renderArea.extent = swapchain_.extent;
-  renderPassInfo.clearValueCount = 1;
-  renderPassInfo.pClearValues = &options.clearColor;
-  vkCmdBeginRenderPass(options.commandBuffer, &renderPassInfo,
-                       VK_SUBPASS_CONTENTS_INLINE);
+  VkRenderingAttachmentInfo colorAttachment{};
+  colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+  colorAttachment.imageView = swapchainImageViews_[currentSwapchainImageIndex_];
+  colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+  colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+  colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+  colorAttachment.clearValue = options.clearColor;
+  VkRenderingInfo renderInfo{};
+  renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+  renderInfo.colorAttachmentCount = 1;
+  renderInfo.pColorAttachments = &colorAttachment;
+  renderInfo.layerCount = 1;
+  renderInfo.renderArea.offset = {0, 0};
+  renderInfo.renderArea.extent = swapchain_.extent;
+  vkCmdBeginRendering(options.commandBuffer, &renderInfo);
 
   // Basic drawing commands:
   VkViewport viewport{};
@@ -923,7 +841,17 @@ void Context::RecordCommandBuffer(const RecordCommandBufferOptions &options) {
       options.pipelineLayout, 0, 1, &options.descriptorSet, 0, nullptr);
   vkCmdDrawIndexed(options.commandBuffer, options.indexCount, 1, 0, 0, 0);
 
-  vkCmdEndRenderPass(options.commandBuffer);
+  // Ending the render pass:
+  vkCmdEndRendering(options.commandBuffer);
+
+  // After rendering , transition the swapchain image to PRESENT_SRC
+  TransitionImageLayout(
+      options.commandBuffer, swapchainImages_[currentSwapchainImageIndex_],
+      VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+      VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0,
+      VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+      VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
+
   if (vkEndCommandBuffer(options.commandBuffer) != VK_SUCCESS) {
     throw std::runtime_error("failed to record command buffer!");
   }
@@ -947,7 +875,7 @@ BeginFrameInfo Context::BeginFrame(const BeginFrameOptions &options) {
       VK_NULL_HANDLE, &currentSwapchainImageIndex_);
   if (result == VK_ERROR_OUT_OF_DATE_KHR) {
     LOG(INFO) << "BeginFrame(): Swapchain is out of date, recreating swapchain";
-    RecreateSwapchain(options.renderPass);
+    RecreateSwapchain();
     result =
         vkAcquireNextImageKHR(device_, swapchain_, UINT64_MAX,
                               imageAvailableSemaphores_[currentFrame_],
@@ -957,7 +885,7 @@ BeginFrameInfo Context::BeginFrame(const BeginFrameOptions &options) {
 
   if (result == VK_ERROR_OUT_OF_DATE_KHR) {
     LOG(INFO) << "BeginFrame(): Recreating swapchain again";
-    RecreateSwapchain(options.renderPass);
+    RecreateSwapchain();
     result =
         vkAcquireNextImageKHR(device_, swapchain_, UINT64_MAX,
                               imageAvailableSemaphores_[currentFrame_],
@@ -1010,7 +938,7 @@ EndFrameInfo Context::EndFrame(const EndFrameOptions &options) {
   VkResult result = vkQueuePresentKHR(presentQueue_, &presentInfo);
   if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
     LOG(INFO) << "EndFrame(): Swapchain is out of date, recreating swapchain";
-    RecreateSwapchain(options.renderPass);
+    RecreateSwapchain();
   } else if (result != VK_SUCCESS) {
     throw std::runtime_error("failed to present swap chain image!");
   }
@@ -1070,7 +998,7 @@ VkImage Context::CreateTextureImage(const TextureImageOptions &options) {
               textureImageMemory);
 
   // Transition the texture image to VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL.
-  TransitionImageLayout(options.commandPool, textureImage, format,
+  TransitionImageLayout(options.commandPool, textureImage,
                         VK_IMAGE_LAYOUT_UNDEFINED,
                         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
   // Execute the buffer to image copy operation.
@@ -1078,7 +1006,7 @@ VkImage Context::CreateTextureImage(const TextureImageOptions &options) {
                     static_cast<uint32_t>(texWidth),
                     static_cast<uint32_t>(texHeight));
   // Transition to prepare the texture image for shader access.
-  TransitionImageLayout(options.commandPool, textureImage, format,
+  TransitionImageLayout(options.commandPool, textureImage,
                         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
@@ -1128,16 +1056,14 @@ VkSampler Context::CreateTextureSampler(const TextureSamplerOptions &options) {
 }
 
 void Context::CleanupSwapchain() {
-  for (const auto &framebuffer : swapchainFramebuffers_) {
-    vkDestroyFramebuffer(device_, framebuffer, nullptr);
-  }
-  swapchainFramebuffers_.clear();
-
   swapchain_.destroy_image_views(swapchainImageViews_);
   vkb::destroy_swapchain(swapchain_);
+  swapchainImages_.clear();
+  swapchainImageViews_.clear();
+  currentSwapchainImageIndex_ = 0U;
 }
 
-void Context::RecreateSwapchain(VkRenderPass renderPass) {
+void Context::RecreateSwapchain() {
   // Handling minimization:
   int width = 0, height = 0;
   glfwGetFramebufferSize(window_, &width, &height);
@@ -1150,7 +1076,6 @@ void Context::RecreateSwapchain(VkRenderPass renderPass) {
 
   CleanupSwapchain();
   CreateSwapchain();
-  CreateSwapchainFramebuffers(renderPass);
 }
 
 void Context::CreateImage(std::uint32_t width, std::uint32_t height,
@@ -1192,11 +1117,13 @@ void Context::CreateImage(std::uint32_t width, std::uint32_t height,
   vkBindImageMemory(device_, image, imageMemory, 0);
 }
 
-void Context::TransitionImageLayout(VkCommandPool commandPool, VkImage image,
-                                    VkFormat format, VkImageLayout oldLayout,
-                                    VkImageLayout newLayout) {
-  VkCommandBuffer commandBuffer = BeginSingleTimeCommands(commandPool);
-
+void Context::TransitionImageLayout(VkCommandBuffer commandBuffer,
+                                    VkImage image, VkImageLayout oldLayout,
+                                    VkImageLayout newLayout,
+                                    VkAccessFlags srcAccessMask,
+                                    VkAccessFlags dstAccessMask,
+                                    VkPipelineStageFlags srcStage,
+                                    VkPipelineStageFlags dstStage) {
   VkImageMemoryBarrier barrier{};
   barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
   barrier.oldLayout = oldLayout;
@@ -1209,16 +1136,25 @@ void Context::TransitionImageLayout(VkCommandPool commandPool, VkImage image,
   barrier.subresourceRange.levelCount = 1;
   barrier.subresourceRange.baseArrayLayer = 0;
   barrier.subresourceRange.layerCount = 1;
+  barrier.srcAccessMask = srcAccessMask;
+  barrier.dstAccessMask = dstAccessMask;
+  vkCmdPipelineBarrier(commandBuffer, srcStage, dstStage, 0, 0, nullptr, 0,
+                       nullptr, 1, &barrier);
+}
 
-  // Transition barrier masks.
-  VkPipelineStageFlags sourceStage;
-  VkPipelineStageFlags destinationStage;
+void Context::TransitionImageLayout(VkCommandBuffer commandBuffer,
+                                    VkImage image, VkImageLayout oldLayout,
+                                    VkImageLayout newLayout) {
+  VkAccessFlags srcAccessMask{};
+  VkAccessFlags dstAccessMask{};
+  VkPipelineStageFlags sourceStage{};
+  VkPipelineStageFlags destinationStage{};
   if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED &&
       newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
     // Undefined -> transfer destination: transfer writes that don't need to
     // wait on anything.
-    barrier.srcAccessMask = 0;
-    barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    srcAccessMask = 0;
+    dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
     sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
     destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
   } else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL &&
@@ -1226,17 +1162,24 @@ void Context::TransitionImageLayout(VkCommandPool commandPool, VkImage image,
     // Transfer destination -> shader reading: shader reads should wait on
     // transfer writes, specifically the shader reads in the fragment shader,
     // because that's where we're going to use the texture.
-    barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
     sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
     destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
   } else {
     throw std::invalid_argument("unsupported layout transition!");
   }
 
-  vkCmdPipelineBarrier(commandBuffer, sourceStage, destinationStage, 0, 0,
-                       nullptr, 0, nullptr, 1, &barrier);
+  TransitionImageLayout(commandBuffer, image, oldLayout, newLayout,
+                        srcAccessMask, dstAccessMask, sourceStage,
+                        destinationStage);
+}
 
+void Context::TransitionImageLayout(VkCommandPool commandPool, VkImage image,
+                                    VkImageLayout oldLayout,
+                                    VkImageLayout newLayout) {
+  VkCommandBuffer commandBuffer = BeginSingleTimeCommands(commandPool);
+  TransitionImageLayout(commandBuffer, image, oldLayout, newLayout);
   EndSingleTimeCommands(commandPool, commandBuffer);
 }
 
