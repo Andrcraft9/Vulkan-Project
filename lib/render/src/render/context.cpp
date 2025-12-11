@@ -344,8 +344,10 @@ Context::CreateGraphicsPipeline(const GraphicsPipelineOptions &options) {
                                                     fragShaderStageInfo};
 
   // Dynamic state.
-  std::vector<VkDynamicState> dynamicStates = {VK_DYNAMIC_STATE_VIEWPORT,
-                                               VK_DYNAMIC_STATE_SCISSOR};
+  std::vector<VkDynamicState> dynamicStates = {
+      VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR,
+      VK_DYNAMIC_STATE_CULL_MODE, VK_DYNAMIC_STATE_FRONT_FACE,
+      VK_DYNAMIC_STATE_PRIMITIVE_TOPOLOGY};
   VkPipelineDynamicStateCreateInfo dynamicState{};
   dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
   dynamicState.dynamicStateCount =
@@ -366,36 +368,22 @@ Context::CreateGraphicsPipeline(const GraphicsPipelineOptions &options) {
   VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
   inputAssembly.sType =
       VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-  inputAssembly.topology = options.topology;
+  inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
   inputAssembly.primitiveRestartEnable = VK_FALSE;
 
   // Viewports and scissors.
-  VkViewport viewport{};
-  viewport.x = 0.0f;
-  viewport.y = 0.0f;
-  viewport.width = static_cast<float>(options.viewportExtent.width);
-  viewport.height = static_cast<float>(options.viewportExtent.height);
-  viewport.minDepth = 0.0f;
-  viewport.maxDepth = 1.0f;
-  VkRect2D scissor{};
-  scissor.offset = {0, 0};
-  scissor.extent = swapchain_.extent;
   VkPipelineViewportStateCreateInfo viewportState{};
   viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
   viewportState.viewportCount = 1;
-  viewportState.pViewports = &viewport;
   viewportState.scissorCount = 1;
-  viewportState.pScissors = &scissor;
 
   // Rasterizer.
   VkPipelineRasterizationStateCreateInfo rasterizer{};
   rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
   rasterizer.depthClampEnable = VK_FALSE;
   rasterizer.rasterizerDiscardEnable = VK_FALSE;
-  rasterizer.polygonMode = options.polygonMode;
+  rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
   rasterizer.lineWidth = 1.0f;
-  rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-  rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
   rasterizer.depthBiasEnable = VK_FALSE;
   rasterizer.depthBiasConstantFactor = 0.0f; // Optional
   rasterizer.depthBiasClamp = 0.0f;          // Optional
@@ -455,7 +443,6 @@ Context::CreateGraphicsPipeline(const GraphicsPipelineOptions &options) {
   pipelineInfo.pViewportState = &viewportState;
   pipelineInfo.pRasterizationState = &rasterizer;
   pipelineInfo.pMultisampleState = &multisampling;
-  pipelineInfo.pDepthStencilState = nullptr; // Optional
   pipelineInfo.pColorBlendState = &colorBlending;
   pipelineInfo.pDynamicState = &dynamicState;
   pipelineInfo.layout = options.pipelineLayout;
@@ -787,7 +774,7 @@ void Context::RecordCommandBuffer(const RecordCommandBufferOptions &options) {
   renderInfo.renderArea.extent = swapchain_.extent;
   vkCmdBeginRendering(options.commandBuffer, &renderInfo);
 
-  // Basic drawing commands:
+  // Dynamic pipeline states:
   VkViewport viewport{};
   viewport.x = 0.0f;
   viewport.y = 0.0f;
@@ -800,6 +787,10 @@ void Context::RecordCommandBuffer(const RecordCommandBufferOptions &options) {
   scissor.offset = {0, 0};
   scissor.extent = swapchain_.extent;
   vkCmdSetScissor(options.commandBuffer, 0, 1, &scissor);
+  vkCmdSetCullMode(options.commandBuffer, VK_CULL_MODE_BACK_BIT);
+  vkCmdSetFrontFace(options.commandBuffer, VK_FRONT_FACE_COUNTER_CLOCKWISE);
+  vkCmdSetPrimitiveTopology(options.commandBuffer, options.topology);
+
   // Binding the vertex buffer:
   vkCmdBindPipeline(options.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                     options.pipeline);

@@ -108,9 +108,6 @@ struct GraphicsPipelineOptions final {
   std::vector<VkVertexInputAttributeDescription> vertexInputAttribues{};
   VkShaderModule fragmentShader{VK_NULL_HANDLE};
   VkPipelineLayout pipelineLayout{VK_NULL_HANDLE};
-  VkPrimitiveTopology topology{};
-  VkPolygonMode polygonMode{};
-  VkExtent2D viewportExtent{};
 };
 
 struct CommandPoolOptions final {};
@@ -169,6 +166,7 @@ struct RecordCommandBufferOptions final {
   VkDescriptorSet descriptorSet{VK_NULL_HANDLE};
   VkClearValue clearColor{};
   VkCommandBuffer commandBuffer{VK_NULL_HANDLE};
+  VkPrimitiveTopology topology{};
   VkBuffer vertexBuffer{VK_NULL_HANDLE};
   VkBuffer indexBuffer{VK_NULL_HANDLE};
   std::uint32_t indexCount{};

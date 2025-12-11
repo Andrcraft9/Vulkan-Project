@@ -2,11 +2,8 @@
 
 namespace graphics {
 
-VertexShaderId Engine::AddVertexShader(VertexShader vertexShader) {
+VertexShaderId Engine::AddVertexShader(VertexShader &&vertexShader) {
   LOG(INFO) << "Loading a vertex shader:" << vertexShader.shaderPath;
-
-  const VertexShaderId id = components_.vertexShaders.size();
-  components_.vertexShaders[id] = vertexShader;
 
   const auto vertexShaderCode = ReadFile(vertexShader.shaderPath);
   render::ShaderModuleOptions shaderOptions{};
@@ -14,53 +11,14 @@ VertexShaderId Engine::AddVertexShader(VertexShader vertexShader) {
   shaderOptions.size = vertexShaderCode.size();
   const auto vertexShaderModule = context_.CreateShaderModule(shaderOptions);
 
+  const VertexShaderId id = components_.vertexShaders.size();
+  components_.vertexShaders[id] = std::move(vertexShader);
   resources_.vertexShaders[id] = vertexShaderModule;
   return id;
 }
 
-MeshId Engine::AddMesh(Mesh mesh) {
-  LOG(INFO) << "Loading a mesh";
-
-  const auto vertexShaderIt = components_.vertexShaders.find(mesh.shader);
-  if (vertexShaderIt == components_.vertexShaders.end()) {
-    throw std::runtime_error("failed to find the vertex shader!");
-  }
-
-  const MeshId id = components_.meshes.size();
-  components_.meshes[id] = mesh;
-
-  LOG(INFO) << "Creating a vertex buffer...";
-  render::VertexBufferOptions vertexBufferOptions{};
-  vertexBufferOptions.commandPool = commandPool_;
-  vertexBufferOptions.bufferSize =
-      sizeof(mesh.vertices[0]) * mesh.vertices.size();
-  vertexBufferOptions.bufferData = mesh.vertices.data();
-  const auto vertexBuffer = context_.CreateVertexBuffer(vertexBufferOptions);
-
-  LOG(INFO) << "Creating a index buffer...";
-  render::IndexBufferOptions indexBufferOptions{};
-  indexBufferOptions.commandPool = commandPool_;
-  indexBufferOptions.bufferSize = sizeof(mesh.indices[0]) * mesh.indices.size();
-  indexBufferOptions.bufferData = mesh.indices.data();
-  const auto indexBuffer = context_.CreateIndexBuffer(indexBufferOptions);
-
-  std::array<VkBuffer, render::kMaxFramesInFlight> uniformBuffers{};
-  for (std::size_t i{0}; i < render::kMaxFramesInFlight; ++i) {
-    LOG(INFO) << "Creating an uniform buffer...";
-    const auto uniformBuffer = context_.CreateUniformBuffer();
-    uniformBuffers[i] = uniformBuffer;
-  }
-
-  resources_.meshes[id] =
-      MeshRes{vertexBuffer, indexBuffer, std::move(uniformBuffers)};
-  return id;
-}
-
-FragmentShaderId Engine::AddFragmentShader(FragmentShader fragmentShader) {
+FragmentShaderId Engine::AddFragmentShader(FragmentShader &&fragmentShader) {
   LOG(INFO) << "Loading a fragment shader:" << fragmentShader.shaderPath;
-
-  const FragmentShaderId id = components_.fragmentShaders.size();
-  components_.fragmentShaders[id] = fragmentShader;
 
   const auto fragmentShaderCode = ReadFile(fragmentShader.shaderPath);
   render::ShaderModuleOptions shaderOptions{};
@@ -68,76 +26,26 @@ FragmentShaderId Engine::AddFragmentShader(FragmentShader fragmentShader) {
   shaderOptions.size = fragmentShaderCode.size();
   const auto fragmentShaderModule = context_.CreateShaderModule(shaderOptions);
 
+  const FragmentShaderId id = components_.fragmentShaders.size();
+  components_.fragmentShaders[id] = fragmentShader;
   resources_.fragmentShaders[id] = fragmentShaderModule;
   return id;
 }
 
-TextureId Engine::AddTexture(Texture texture) {
-  LOG(INFO) << "Loading a texture";
+ProgramId Engine::AddProgram(Program &&program) {
+  LOG(INFO) << "Loading a program";
 
-  const TextureId id = components_.textures.size();
-  components_.textures[id] = texture;
-
-  LOG(INFO) << "Creating a texture image...";
-  render::TextureImageOptions textureImageOptions{};
-  textureImageOptions.commandPool = commandPool_;
-  textureImageOptions.imageData = texture.image;
-  const auto image = context_.CreateTextureImage(textureImageOptions);
-
-  LOG(INFO) << "Creating a texture image view...";
-  render::ImageViewOptions textureImageViewOptions{};
-  textureImageViewOptions.format = VK_FORMAT_R8G8B8A8_SRGB;
-  textureImageViewOptions.image = image;
-  const auto imageView = context_.CreateImageView(textureImageViewOptions);
-
-  LOG(INFO) << "Creating a texture sampler...";
-  render::TextureSamplerOptions textureSamplerOptions{};
-  textureSamplerOptions.magFilter = VK_FILTER_LINEAR;
-  textureSamplerOptions.minFilter = VK_FILTER_LINEAR;
-  textureSamplerOptions.addressMode = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-  textureSamplerOptions.anisotropyEnable = false;
-  textureSamplerOptions.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-  const auto sampler = context_.CreateTextureSampler(textureSamplerOptions);
-
-  resources_.textures[id] = TextureRes{image, imageView, sampler};
-  return id;
-}
-
-MaterialId Engine::AddMaterial(Material material) {
-  LOG(INFO) << "Loading a material";
+  const auto vertexShaderIt =
+      components_.vertexShaders.find(program.vertexShader);
+  if (vertexShaderIt == components_.vertexShaders.end()) {
+    throw std::runtime_error("failed to find the vertex shader!");
+  }
 
   const auto fragmentShaderIt =
-      components_.fragmentShaders.find(material.shader);
+      components_.fragmentShaders.find(program.fragmentShader);
   if (fragmentShaderIt == components_.fragmentShaders.end()) {
     throw std::runtime_error("failed to find the fragment shader!");
   }
-
-  const auto textureIt = components_.textures.find(material.texture);
-  if (textureIt == components_.textures.end()) {
-    throw std::runtime_error("failed to find the texture!");
-  }
-
-  const MaterialId id = components_.materials.size();
-  components_.materials[id] = material;
-
-  return id;
-}
-
-SurfaceId Engine::AddSurface(Surface surface) {
-  LOG(INFO) << "Loading a surface";
-
-  const auto meshIt = components_.meshes.find(surface.mesh);
-  if (meshIt == components_.meshes.end()) {
-    throw std::runtime_error("failed to find the mesh!");
-  }
-
-  const auto materialIt = components_.materials.find(surface.material);
-  if (materialIt == components_.materials.end()) {
-    throw std::runtime_error("failed to find the material!");
-  }
-
-  const SurfaceId id = components_.surfaces.size();
-  components_.surfaces[id] = surface;
 
   LOG(INFO) << "Creating a descriptor set layout...";
   std::vector<render::DescriptorSetLayoutBindingOptions> bindingOptions{};
@@ -158,20 +66,16 @@ SurfaceId Engine::AddSurface(Surface surface) {
       context_.CreatePipelineLayout(pipelineLayoutOptions);
 
   LOG(INFO) << "Creating a graphics pipeline...";
-  const auto &mesh = components_.meshes[surface.mesh];
-  const auto &vertexShaderModule = resources_.vertexShaders[mesh.shader];
-  const auto &material = components_.materials[surface.material];
-  const auto &fragmentShaderModule =
-      resources_.fragmentShaders[material.shader];
+  const auto vertexShaderModule =
+      resources_.vertexShaders[program.vertexShader];
+  const auto fragmentShaderModule =
+      resources_.fragmentShaders[program.fragmentShader];
   render::GraphicsPipelineOptions pipelineOptions{};
   pipelineOptions.pipelineLayout = pipelineLayout;
   pipelineOptions.vertexShader = vertexShaderModule;
   pipelineOptions.vertexInputBinding = render::GetBindingDescription();
   pipelineOptions.vertexInputAttribues = render::GetAttributeDescriptions();
   pipelineOptions.fragmentShader = fragmentShaderModule;
-  pipelineOptions.viewportExtent = context_.GetSwapchainExtent();
-  pipelineOptions.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-  pipelineOptions.polygonMode = VK_POLYGON_MODE_FILL;
   const auto pipeline = context_.CreateGraphicsPipeline(pipelineOptions);
 
   LOG(INFO) << "Creating a descriptor pool...";
@@ -196,22 +100,132 @@ SurfaceId Engine::AddSurface(Surface surface) {
     descriptorSets[i] = (descriptorSet);
   }
 
-  const auto &meshRes = resources_.meshes[surface.mesh];
-  const auto &textureRes = resources_.textures[material.texture];
+  std::array<VkBuffer, render::kMaxFramesInFlight> uniformBuffers{};
+  for (std::size_t i{0}; i < render::kMaxFramesInFlight; ++i) {
+    LOG(INFO) << "Creating an uniform buffer...";
+    const auto uniformBuffer = context_.CreateUniformBuffer();
+    uniformBuffers[i] = uniformBuffer;
+  }
+
+  const ProgramId id = components_.programs.size();
+  components_.programs[id] = std::move(program);
+  resources_.programs[id] = ProgramRes{descriptorSetLayout,
+                                       pipelineLayout,
+                                       pipeline,
+                                       descriptorPool,
+                                       std::move(descriptorSets),
+                                       std::move(uniformBuffers)};
+  return id;
+}
+
+MeshId Engine::AddMesh(Mesh &&mesh) {
+  LOG(INFO) << "Loading a mesh";
+
+  LOG(INFO) << "Creating a vertex buffer...";
+  render::VertexBufferOptions vertexBufferOptions{};
+  vertexBufferOptions.commandPool = commandPool_;
+  vertexBufferOptions.bufferSize =
+      sizeof(mesh.vertices[0]) * mesh.vertices.size();
+  vertexBufferOptions.bufferData = mesh.vertices.data();
+  const auto vertexBuffer = context_.CreateVertexBuffer(vertexBufferOptions);
+
+  LOG(INFO) << "Creating a index buffer...";
+  render::IndexBufferOptions indexBufferOptions{};
+  indexBufferOptions.commandPool = commandPool_;
+  indexBufferOptions.bufferSize = sizeof(mesh.indices[0]) * mesh.indices.size();
+  indexBufferOptions.bufferData = mesh.indices.data();
+  const auto indexBuffer = context_.CreateIndexBuffer(indexBufferOptions);
+
+  std::array<VkBuffer, render::kMaxFramesInFlight> uniformBuffers{};
+  for (std::size_t i{0}; i < render::kMaxFramesInFlight; ++i) {
+    LOG(INFO) << "Creating an uniform buffer...";
+    const auto uniformBuffer = context_.CreateUniformBuffer();
+    uniformBuffers[i] = uniformBuffer;
+  }
+
+  const MeshId id = components_.meshes.size();
+  components_.meshes[id] = std::move(mesh);
+  resources_.meshes[id] = MeshRes{vertexBuffer, indexBuffer};
+  return id;
+}
+
+TextureId Engine::AddTexture(Texture &&texture) {
+  LOG(INFO) << "Loading a texture";
+
+  LOG(INFO) << "Creating a texture image...";
+  render::TextureImageOptions textureImageOptions{};
+  textureImageOptions.commandPool = commandPool_;
+  textureImageOptions.imageData = texture.image;
+  const auto image = context_.CreateTextureImage(textureImageOptions);
+
+  LOG(INFO) << "Creating a texture image view...";
+  render::ImageViewOptions textureImageViewOptions{};
+  textureImageViewOptions.format = VK_FORMAT_R8G8B8A8_SRGB;
+  textureImageViewOptions.image = image;
+  const auto imageView = context_.CreateImageView(textureImageViewOptions);
+
+  LOG(INFO) << "Creating a texture sampler...";
+  render::TextureSamplerOptions textureSamplerOptions{};
+  textureSamplerOptions.magFilter = VK_FILTER_LINEAR;
+  textureSamplerOptions.minFilter = VK_FILTER_LINEAR;
+  textureSamplerOptions.addressMode = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+  textureSamplerOptions.anisotropyEnable = false;
+  textureSamplerOptions.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+  const auto sampler = context_.CreateTextureSampler(textureSamplerOptions);
+
+  const TextureId id = components_.textures.size();
+  components_.textures[id] = std::move(texture);
+  resources_.textures[id] = TextureRes{image, imageView, sampler};
+  return id;
+}
+
+MaterialId Engine::AddMaterial(Material &&material) {
+  LOG(INFO) << "Loading a material";
+
+  const auto textureIt = components_.textures.find(material.texture);
+  if (textureIt == components_.textures.end()) {
+    throw std::runtime_error("failed to find the texture!");
+  }
+
+  const MaterialId id = components_.materials.size();
+  components_.materials[id] = std::move(material);
+  return id;
+}
+
+SurfaceId Engine::AddSurface(Surface &&surface) {
+  LOG(INFO) << "Loading a surface";
+
+  const auto programIt = components_.programs.find(surface.program);
+  if (programIt == components_.programs.end()) {
+    throw std::runtime_error("failed to find the program!");
+  }
+
+  const auto meshIt = components_.meshes.find(surface.mesh);
+  if (meshIt == components_.meshes.end()) {
+    throw std::runtime_error("failed to find the mesh!");
+  }
+
+  const auto materialIt = components_.materials.find(surface.material);
+  if (materialIt == components_.materials.end()) {
+    throw std::runtime_error("failed to find the material!");
+  }
+
+  const auto &programRes = resources_.programs[surface.program];
+  const auto &textureRes = resources_.textures[materialIt->second.texture];
   for (std::size_t i{0}; i < render::kMaxFramesInFlight; ++i) {
     LOG(INFO) << "Updating a descriptor set...";
 
     // Uniform Buffer.
     std::vector<render::DescriptorUniformBufferInfo> uniformBufferInfos{};
-    uniformBufferInfos.emplace_back(
-        render::DescriptorUniformBufferInfo{meshRes.uniformBuffers[i], 0});
+    uniformBufferInfos.emplace_back(render::DescriptorUniformBufferInfo{
+        programRes.vertexUniformBuffers[i], 0});
 
     // Texture.
     std::vector<render::DescriptorImageInfo> imageInfos{};
     imageInfos.emplace_back(render::DescriptorImageInfo{textureRes.imageView,
                                                         textureRes.sampler, 1});
     render::UpdateDescriptorSetOptions updateDescriptorSetOptions{};
-    updateDescriptorSetOptions.descriptorSet = descriptorSets[i];
+    updateDescriptorSetOptions.descriptorSet = programRes.descriptorSets[i];
     updateDescriptorSetOptions.descriptorUniformBuffers =
         std::move(uniformBufferInfos);
     updateDescriptorSetOptions.descriptorImages = std::move(imageInfos);
@@ -219,13 +233,12 @@ SurfaceId Engine::AddSurface(Surface surface) {
     context_.UpdateDescriptorSet(updateDescriptorSetOptions);
   }
 
-  resources_.surfaces[id] =
-      SurfaceRes{descriptorSetLayout, pipelineLayout, pipeline, descriptorPool,
-                 std::move(descriptorSets)};
+  const SurfaceId id = components_.surfaces.size();
+  components_.surfaces[id] = std::move(surface);
   return id;
 }
 
-NodeId Engine::AddNode(Node node) {
+NodeId Engine::AddNode(Node &&node) {
   LOG(INFO) << "Loading a node";
 
   const auto surfaceIt = components_.surfaces.find(node.surface);
@@ -234,19 +247,19 @@ NodeId Engine::AddNode(Node node) {
   }
 
   const NodeId id = components_.nodes.size();
-  components_.nodes[id] = node;
+  components_.nodes[id] = std::move(node);
   return id;
 }
 
-CameraId Engine::AddCamera(Camera camera) {
+CameraId Engine::AddCamera(Camera &&camera) {
   LOG(INFO) << "Loading a camera";
 
   const CameraId id = components_.cameras.size();
-  components_.cameras[id] = camera;
+  components_.cameras[id] = std::move(camera);
   return id;
 }
 
-SceneId Engine::AddScene(Scene scene) {
+SceneId Engine::AddScene(Scene &&scene) {
   LOG(INFO) << "Loading a scene";
 
   const auto cameraIt = components_.cameras.find(scene.camera);
@@ -262,11 +275,12 @@ SceneId Engine::AddScene(Scene scene) {
   }
 
   const SceneId id = components_.scenes.size();
-  components_.scenes[id] = scene;
+  components_.scenes[id] = std::move(scene);
   return id;
 }
 
-void Engine::UpdateNodeTransform(NodeId nodeId, glm::mat4 transform) {
+void Engine::UpdateNodeTransform(const NodeId nodeId,
+                                 const glm::mat4 &transform) {
   auto nodeIt = components_.nodes.find(nodeId);
   if (nodeIt == components_.nodes.end()) {
     throw std::runtime_error("failed to find the node!");
@@ -275,7 +289,8 @@ void Engine::UpdateNodeTransform(NodeId nodeId, glm::mat4 transform) {
   nodeIt->second.transform = transform;
 }
 
-void Engine::UpdateCameraTransform(CameraId cameraId, glm::mat4 transform) {
+void Engine::UpdateCameraTransform(const CameraId cameraId,
+                                   const glm::mat4 &transform) {
   auto cameraIt = components_.cameras.find(cameraId);
   if (cameraIt == components_.cameras.end()) {
     throw std::runtime_error("failed to find the camera!");
@@ -284,7 +299,8 @@ void Engine::UpdateCameraTransform(CameraId cameraId, glm::mat4 transform) {
   cameraIt->second.transform = transform;
 }
 
-void Engine::UpdateCameraProjection(CameraId cameraId, glm::mat4 projection) {
+void Engine::UpdateCameraProjection(const CameraId cameraId,
+                                    const glm::mat4 &projection) {
   auto cameraIt = components_.cameras.find(cameraId);
   if (cameraIt == components_.cameras.end()) {
     throw std::runtime_error("failed to find the camera!");
@@ -324,7 +340,7 @@ void Engine::Render() {
     for (const auto nodeId : scene.nodes) {
       const auto &node = components_.nodes[nodeId];
       const auto &surface = components_.surfaces[node.surface];
-      const auto &surfaceRes = resources_.surfaces[node.surface];
+      const auto &programRes = resources_.programs[surface.program];
       const auto &mesh = components_.meshes[surface.mesh];
       const auto &meshRes = resources_.meshes[surface.mesh];
       const auto &camera = components_.cameras[scene.camera];
@@ -334,9 +350,10 @@ void Engine::Render() {
       recordOptions.vertexBuffer = meshRes.vertexBuffer;
       recordOptions.indexBuffer = meshRes.indexBuffer;
       recordOptions.indexCount = mesh.indices.size();
-      recordOptions.descriptorSet = surfaceRes.descriptorSets[bufferId_];
-      recordOptions.pipelineLayout = surfaceRes.pipelineLayout;
-      recordOptions.pipeline = surfaceRes.pipeline;
+      recordOptions.topology = mesh.topology;
+      recordOptions.descriptorSet = programRes.descriptorSets[bufferId_];
+      recordOptions.pipelineLayout = programRes.pipelineLayout;
+      recordOptions.pipeline = programRes.pipeline;
       recordOptions.clearColor = scene.clearColor;
       context_.RecordCommandBuffer(recordOptions);
 

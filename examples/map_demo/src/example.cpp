@@ -1,10 +1,7 @@
 #include <graphics/engine.hpp>
 #include <graphics/map.hpp>
 
-#include <chrono>
-
-void update(graphics::Engine &engine, const graphics::CameraId camera,
-            const float time) {
+void update(graphics::Engine &engine, const graphics::CameraId camera) {
   const auto swapChainExtent = engine.Extent();
 
   glm::mat4 view =
@@ -19,7 +16,7 @@ void update(graphics::Engine &engine, const graphics::CameraId camera,
   engine.UpdateCameraProjection(camera, projection);
 }
 
-int main(int argc, char *argv[]) {
+int main(int, char *argv[]) {
   google::InitGoogleLogging(argv[0]);
   google::LogToStderr();
 
@@ -36,36 +33,31 @@ int main(int argc, char *argv[]) {
         engine.AddVertexShader(graphics::VertexShader{vertexShaderPath});
     const auto fragmentShader =
         engine.AddFragmentShader(graphics::FragmentShader{fragmentShaderPath});
+    const auto program =
+        engine.AddProgram(graphics::Program{vertexShader, fragmentShader});
     std::vector<graphics::Vertex> vertices{{{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f}},
                                            {{0.5f, -0.5f, 0.0f}, {0.0f, 0.0f}},
                                            {{0.5f, 0.5f, 0.0f}, {0.0f, 1.0f}},
                                            {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f}}};
     std::vector<std::uint16_t> indices{0, 1, 2, 2, 3, 0};
-    const auto mesh = engine.AddMesh(
-        graphics::Mesh{vertexShader, std::move(vertices), std::move(indices)});
+    const auto mesh =
+        engine.AddMesh(graphics::Mesh{VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+                                      std::move(vertices), std::move(indices)});
     const auto texture = engine.AddTexture(graphics::Texture{&tile});
-    const auto material =
-        engine.AddMaterial(graphics::Material{fragmentShader, texture});
-    const auto surface = engine.AddSurface(graphics::Surface{mesh, material});
+    const auto material = engine.AddMaterial(graphics::Material{texture});
+    const auto surface =
+        engine.AddSurface(graphics::Surface{program, mesh, material});
     const auto node = engine.AddNode(graphics::Node{glm::mat4{1.0f}, surface});
     const auto camera =
         engine.AddCamera(graphics::Camera{glm::mat4{1.0f}, glm::mat4{1.0f}});
-    const auto scene = engine.AddScene(
+    engine.AddScene(
         graphics::Scene{{node}, camera, VkClearValue{127, 127, 127, 127}});
 
     /// Main engine loop.
     const auto window = engine.Window();
-    const auto startTime = std::chrono::high_resolution_clock::now();
     while (!glfwWindowShouldClose(window)) {
       glfwPollEvents();
-
-      const auto currentTime = std::chrono::high_resolution_clock::now();
-      const float time =
-          std::chrono::duration<float, std::chrono::seconds::period>(
-              currentTime - startTime)
-              .count();
-
-      update(engine, camera, time);
+      update(engine, camera);
       engine.Render();
     }
 
