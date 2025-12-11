@@ -180,7 +180,7 @@ struct UpdateUniformBufferOptions final {
 };
 
 struct BeginFrameInfo final {
-  bool ifSwapchainRecreated{};
+  bool isImageAcquired{};
 };
 
 struct EndFrameOptions final {

@@ -334,7 +334,12 @@ void Engine::Initialize() {
 
 void Engine::Render() {
   render::BeginFrameOptions beginFrameOptions{};
-  context_.BeginFrame(beginFrameOptions);
+  const auto beginRes = context_.BeginFrame(beginFrameOptions);
+
+  if (!beginRes.isImageAcquired) {
+    // Swapchain was recreated, skip this frame.
+    return;
+  }
 
   for (const auto &[sceneId, scene] : components_.scenes) {
     for (const auto nodeId : scene.nodes) {

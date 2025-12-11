@@ -459,7 +459,7 @@ Context::CreateGraphicsPipeline(const GraphicsPipelineOptions &options) {
   return pipeline;
 }
 
-VkCommandPool Context::CreateCommandPool(const CommandPoolOptions &options) {
+VkCommandPool Context::CreateCommandPool(const CommandPoolOptions &) {
   VkCommandPoolCreateInfo poolInfo{};
   poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
   poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
@@ -832,9 +832,7 @@ void Context::UpdateUniformBuffer(const UpdateUniformBufferOptions &options) {
          &options.data, sizeof(options.data));
 }
 
-BeginFrameInfo Context::BeginFrame(const BeginFrameOptions &options) {
-  BeginFrameInfo info{false};
-
+BeginFrameInfo Context::BeginFrame(const BeginFrameOptions &) {
   // Waiting for the previous frame:
   vkWaitForFences(device_, 1, &inFlightFences_[currentFrame_], VK_TRUE,
                   UINT64_MAX);
@@ -846,21 +844,7 @@ BeginFrameInfo Context::BeginFrame(const BeginFrameOptions &options) {
   if (result == VK_ERROR_OUT_OF_DATE_KHR) {
     LOG(INFO) << "BeginFrame(): Swapchain is out of date, recreating swapchain";
     RecreateSwapchain();
-    result =
-        vkAcquireNextImageKHR(device_, swapchain_, UINT64_MAX,
-                              imageAvailableSemaphores_[currentFrame_],
-                              VK_NULL_HANDLE, &currentSwapchainImageIndex_);
-    info.ifSwapchainRecreated = true;
-  }
-
-  if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-    LOG(INFO) << "BeginFrame(): Recreating swapchain again";
-    RecreateSwapchain();
-    result =
-        vkAcquireNextImageKHR(device_, swapchain_, UINT64_MAX,
-                              imageAvailableSemaphores_[currentFrame_],
-                              VK_NULL_HANDLE, &currentSwapchainImageIndex_);
-    info.ifSwapchainRecreated = true;
+    return BeginFrameInfo{false};
   }
 
   if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
@@ -870,7 +854,7 @@ BeginFrameInfo Context::BeginFrame(const BeginFrameOptions &options) {
   // Only reset the fence if we are submitting work.
   vkResetFences(device_, 1, &inFlightFences_[currentFrame_]);
 
-  return info;
+  return BeginFrameInfo{true};
 }
 
 EndFrameInfo Context::EndFrame(const EndFrameOptions &options) {
