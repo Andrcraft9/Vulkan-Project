@@ -34,7 +34,6 @@ target_link_libraries(
     Vulkan::Vulkan
     GPUOpen::VulkanMemoryAllocator
     vk-bootstrap::vk-bootstrap
-    vk-bootstrap::vk-bootstrap-compiler-warnings
     glm::glm
     glfw
     glog::glog
