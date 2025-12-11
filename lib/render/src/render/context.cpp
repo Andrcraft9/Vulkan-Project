@@ -112,7 +112,8 @@ void Context::CreateSwapchain() {
 
   auto image_ret = swapchain_.get_images();
   if (!image_ret) {
-    throw std::runtime_error("failed to get swapchain images" + image_ret.error().message());
+    throw std::runtime_error("failed to get swapchain images" +
+                             image_ret.error().message());
   }
   LOG(INFO) << "Swapchain created with " << image_ret->size() << " images";
   swapchainImages_ = std::move(*image_ret);
@@ -362,7 +363,8 @@ Context::CreateGraphicsPipeline(const GraphicsPipelineOptions &options) {
   vertexInputInfo.vertexAttributeDescriptionCount =
       static_cast<std::uint32_t>(options.vertexInputAttribues.size());
   vertexInputInfo.pVertexBindingDescriptions = &options.vertexInputBinding;
-  vertexInputInfo.pVertexAttributeDescriptions = options.vertexInputAttribues.data();
+  vertexInputInfo.pVertexAttributeDescriptions =
+      options.vertexInputAttribues.data();
 
   // Input assembly.
   VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
@@ -489,7 +491,8 @@ Context::CreateCommandBuffer(const CommandBufferOptions &options) {
   return commandBuffer;
 }
 
-VkCommandBuffer Context::BeginSingleTimeCommands(VkCommandPool commandPool) {
+VkCommandBuffer
+Context::BeginSingleTimeCommands(const VkCommandPool commandPool) {
   VkCommandBufferAllocateInfo allocInfo{};
   allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
   allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
@@ -508,8 +511,8 @@ VkCommandBuffer Context::BeginSingleTimeCommands(VkCommandPool commandPool) {
   return commandBuffer;
 }
 
-void Context::EndSingleTimeCommands(VkCommandPool commandPool,
-                                    VkCommandBuffer commandBuffer) {
+void Context::EndSingleTimeCommands(const VkCommandPool commandPool,
+                                    const VkCommandBuffer commandBuffer) {
   vkEndCommandBuffer(commandBuffer);
 
   VkSubmitInfo submitInfo{};
@@ -523,9 +526,10 @@ void Context::EndSingleTimeCommands(VkCommandPool commandPool,
   vkFreeCommandBuffers(device_, commandPool, 1, &commandBuffer);
 }
 
-void Context::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
-                           VmaAllocationCreateFlags flags, VkBuffer &buffer,
-                           VmaAllocation &bufferMemory) {
+void Context::CreateBuffer(const VkDeviceSize size,
+                           const VkBufferUsageFlags usage,
+                           const VmaAllocationCreateFlags flags,
+                           VkBuffer &buffer, VmaAllocation &bufferMemory) {
   VkBufferCreateInfo bufferInfo{};
   bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
   bufferInfo.size = size;
@@ -540,9 +544,10 @@ void Context::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
   }
 }
 
-void Context::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
-                           VmaAllocationCreateFlags flags, VkBuffer &buffer,
-                           VmaAllocation &bufferMemory,
+void Context::CreateBuffer(const VkDeviceSize size,
+                           const VkBufferUsageFlags usage,
+                           const VmaAllocationCreateFlags flags,
+                           VkBuffer &buffer, VmaAllocation &bufferMemory,
                            VmaAllocationInfo &allocationInfo) {
   VkBufferCreateInfo bufferInfo{};
   bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -558,8 +563,9 @@ void Context::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
   }
 }
 
-void Context::CopyBuffer(VkCommandPool commandPool, VkBuffer srcBuffer,
-                         VkBuffer dstBuffer, VkDeviceSize size) {
+void Context::CopyBuffer(const VkCommandPool commandPool,
+                         const VkBuffer srcBuffer, const VkBuffer dstBuffer,
+                         const VkDeviceSize size) {
   VkCommandBuffer commandBuffer = BeginSingleTimeCommands(commandPool);
 
   VkBufferCopy copyRegion{};
@@ -750,7 +756,8 @@ void Context::RecordCommandBuffer(const RecordCommandBufferOptions &options) {
     throw std::runtime_error("failed to begin recording command buffer!");
   }
 
-  // Before starting rendering, transition the swapchain image to COLOR_ATTACHMENT_OPTIMAL.
+  // Before starting rendering, transition the swapchain image to
+  // COLOR_ATTACHMENT_OPTIMAL.
   TransitionImageLayout(
       options.commandBuffer, swapchainImages_[currentSwapchainImageIndex_],
       VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, 0,
@@ -878,7 +885,8 @@ EndFrameInfo Context::EndFrame(const EndFrameOptions &options) {
   submitInfo.pWaitDstStageMask = waitStages;
   submitInfo.commandBufferCount = 1;
   submitInfo.pCommandBuffers = &options.commandBuffer;
-  VkSemaphore signalSemaphores[] = {renderFinishedSemaphores_[currentSwapchainImageIndex_]};
+  VkSemaphore signalSemaphores[] = {
+      renderFinishedSemaphores_[currentSwapchainImageIndex_]};
   submitInfo.signalSemaphoreCount = 1;
   submitInfo.pSignalSemaphores = signalSemaphores;
   if (vkQueueSubmit(graphicsQueue_, 1, &submitInfo,
@@ -1040,9 +1048,9 @@ void Context::RecreateSwapchain() {
   CreateSwapchain();
 }
 
-void Context::CreateImage(std::uint32_t width, std::uint32_t height,
-                          VkFormat format, VkImageTiling tiling,
-                          VkImageUsageFlags usage, VkImage &image,
+void Context::CreateImage(const std::uint32_t width, const std::uint32_t height,
+                          const VkFormat format, const VkImageTiling tiling,
+                          const VkImageUsageFlags usage, VkImage &image,
                           VmaAllocation &imageMemory) {
   VkImageCreateInfo imageInfo{};
   imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -1066,13 +1074,11 @@ void Context::CreateImage(std::uint32_t width, std::uint32_t height,
   }
 }
 
-void Context::TransitionImageLayout(VkCommandBuffer commandBuffer,
-                                    VkImage image, VkImageLayout oldLayout,
-                                    VkImageLayout newLayout,
-                                    VkAccessFlags srcAccessMask,
-                                    VkAccessFlags dstAccessMask,
-                                    VkPipelineStageFlags srcStage,
-                                    VkPipelineStageFlags dstStage) {
+void Context::TransitionImageLayout(
+    const VkCommandBuffer commandBuffer, const VkImage image,
+    const VkImageLayout oldLayout, const VkImageLayout newLayout,
+    const VkAccessFlags srcAccessMask, const VkAccessFlags dstAccessMask,
+    const VkPipelineStageFlags srcStage, const VkPipelineStageFlags dstStage) {
   VkImageMemoryBarrier barrier{};
   barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
   barrier.oldLayout = oldLayout;
@@ -1091,9 +1097,10 @@ void Context::TransitionImageLayout(VkCommandBuffer commandBuffer,
                        nullptr, 1, &barrier);
 }
 
-void Context::TransitionImageLayout(VkCommandBuffer commandBuffer,
-                                    VkImage image, VkImageLayout oldLayout,
-                                    VkImageLayout newLayout) {
+void Context::TransitionImageLayout(const VkCommandBuffer commandBuffer,
+                                    const VkImage image,
+                                    const VkImageLayout oldLayout,
+                                    const VkImageLayout newLayout) {
   VkAccessFlags srcAccessMask{};
   VkAccessFlags dstAccessMask{};
   VkPipelineStageFlags sourceStage{};
@@ -1124,17 +1131,19 @@ void Context::TransitionImageLayout(VkCommandBuffer commandBuffer,
                         destinationStage);
 }
 
-void Context::TransitionImageLayout(VkCommandPool commandPool, VkImage image,
-                                    VkImageLayout oldLayout,
-                                    VkImageLayout newLayout) {
+void Context::TransitionImageLayout(const VkCommandPool commandPool,
+                                    const VkImage image,
+                                    const VkImageLayout oldLayout,
+                                    const VkImageLayout newLayout) {
   VkCommandBuffer commandBuffer = BeginSingleTimeCommands(commandPool);
   TransitionImageLayout(commandBuffer, image, oldLayout, newLayout);
   EndSingleTimeCommands(commandPool, commandBuffer);
 }
 
-void Context::CopyBufferToImage(VkCommandPool commandPool, VkBuffer buffer,
-                                VkImage image, uint32_t width,
-                                uint32_t height) {
+void Context::CopyBufferToImage(const VkCommandPool commandPool,
+                                const VkBuffer buffer, const VkImage image,
+                                const std::uint32_t width,
+                                const std::uint32_t height) {
   VkCommandBuffer commandBuffer = BeginSingleTimeCommands(commandPool);
 
   VkBufferImageCopy region{};

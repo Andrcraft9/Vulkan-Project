@@ -124,7 +124,7 @@ struct VertexBufferOptions final {
 
 struct IndexBufferOptions final {
   VkCommandPool commandPool{VK_NULL_HANDLE};
-  const std::uint16_t* bufferData{};
+  const std::uint16_t *bufferData{};
   VkDeviceSize bufferSize{};
 };
 
@@ -172,8 +172,7 @@ struct RecordCommandBufferOptions final {
   std::uint32_t indexCount{};
 };
 
-struct BeginFrameOptions final {
-};
+struct BeginFrameOptions final {};
 
 struct UpdateUniformBufferOptions final {
   std::uint32_t uniformBufferIndex{};
@@ -346,15 +345,14 @@ private:
                              VkPipelineStageFlags dstStage);
 
   void TransitionImageLayout(VkCommandBuffer commandBuffer, VkImage image,
-                             VkImageLayout oldLayout,
-                             VkImageLayout newLayout);
+                             VkImageLayout oldLayout, VkImageLayout newLayout);
 
   void TransitionImageLayout(VkCommandPool commandPool, VkImage image,
-                             VkImageLayout oldLayout,
-                             VkImageLayout newLayout);
+                             VkImageLayout oldLayout, VkImageLayout newLayout);
 
   void CopyBufferToImage(VkCommandPool commandPool, VkBuffer buffer,
-                         VkImage image, uint32_t width, uint32_t height);
+                         VkImage image, std::uint32_t width,
+                         std::uint32_t height);
 
   /// @}
 
